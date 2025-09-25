@@ -329,7 +329,7 @@ export function AppointmentScheduling({ onNavigate }: AppointmentSchedulingProps
                   mode="single"
                   selected={selectedDate}
                   onSelect={setSelectedDate}
-                  disabled={(date) => date < new Date()}
+                  disabled={(date: number) => date ? new Date() : undefined}
                   className="w-full"
                 />
               </CardContent>

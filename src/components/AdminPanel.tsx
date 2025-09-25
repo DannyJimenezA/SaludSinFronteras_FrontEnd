@@ -354,7 +354,7 @@ export function AdminPanel({ onNavigate }: AdminPanelProps) {
                   <Input
                     placeholder="Buscar usuarios por nombre o email..."
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={(e: { target: { value: any; }; }) => setSearchTerm(e.target.value)}
                     className="pl-10"
                   />
                 </div>

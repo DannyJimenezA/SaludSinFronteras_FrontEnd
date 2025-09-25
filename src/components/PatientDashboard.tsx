@@ -1,26 +1,104 @@
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Button } from './ui/button';
-import { Badge } from './ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { 
-  Calendar, 
-  Clock, 
-  MessageSquare, 
-  Search, 
-  Bell, 
-  FileText, 
-  Video, 
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Button } from "./ui/button";
+import { Badge } from "./ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import {
+  Calendar,
+  Clock,
+  MessageSquare,
+  Search,
+  Bell,
+  FileText,
+  Video,
   Star,
   MapPin,
-  Languages
-} from 'lucide-react';
+  Languages,
+} from "lucide-react";
+import { usePatientDashboard } from "../hooks/usePatientDashboard"; // <- ojo al nombre del archivo
 
+// ---------------- Tipos de datos que espera el dashboard ----------------
+type UpcomingAppointment = {
+  id: number;
+  doctor: string;
+  specialty: string;
+  date: string;   // ISO 'YYYY-MM-DD'
+  time: string;   // 'HH:mm'
+  type: "videollamada" | "presencial";
+};
+
+type RecommendedDoctor = {
+  id: number;
+  name: string;
+  specialty: string;
+  rating: number;
+  location: string;
+  languages: string[];
+  available: boolean;
+};
+
+type RecentMessage = {
+  id: number;
+  from: string;
+  preview: string;
+  unread?: boolean;
+  at?: string; // fecha/hora opcional
+};
+
+// ---------------- Props del componente ----------------
 interface PatientDashboardProps {
   onNavigate: (screen: string) => void;
+  patientId: number;
+  patientName?: string; // opcional para encabezado
 }
 
-export function PatientDashboard({ onNavigate }: PatientDashboardProps) {
-  const upcomingAppointments = [
+// ---------------- Componente ----------------
+export function PatientDashboard({
+  onNavigate,
+  patientId,
+  patientName = "Paciente",
+}: PatientDashboardProps) {
+  // Llama al hook que obtiene los datos del backend
+  const { data, isLoading, error, refetch, isFetching } =
+    usePatientDashboard(patientId);
+
+  // Normaliza/asegura arrays aunque no haya datos
+  const upcomingAppointments: UpcomingAppointment[] =
+    (data?.upcomingAppointments as UpcomingAppointment[]) ?? [];
+
+  const recommendedDoctors: RecommendedDoctor[] =
+    (data?.recommendedDoctors as RecommendedDoctor[]) ?? [];
+
+  const recentMessages: RecentMessage[] =
+    (data?.recentMessages as unknown as RecentMessage[]) ?? [];
+
+  // (Opcional) Estados de carga / error antes del return "grande".
+  // Si prefieres mostrarlos dentro del JSX principal, elimina estos returns tempranos.
+  if (isLoading && !data) {
+    return (
+      <div className="min-h-screen grid place-items-center p-6">
+        <div className="text-sm text-muted-foreground">Cargando panel…</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen grid place-items-center p-6">
+        <div className="space-y-3 text-center">
+          <p className="text-red-600 font-medium">
+            Ocurrió un error al cargar tu panel.
+          </p>
+          <Button onClick={() => refetch()} disabled={isFetching}>
+            Reintentar
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+/*
+  export function PatientDashboard({ onNavigate }: PatientDashboardProps) {
+  const upcomingAppointments = [ 
     {
       id: 1,
       doctor: 'Dr. Ana García',
@@ -68,6 +146,8 @@ export function PatientDashboard({ onNavigate }: PatientDashboardProps) {
       available: false
     }
   ];
+}
+*/
 
   return (
     <div className="min-h-screen bg-background p-4">
@@ -246,6 +326,7 @@ export function PatientDashboard({ onNavigate }: PatientDashboardProps) {
           </div>
 
           {/* Right Column */}
+          {/* ---- Mensajes recientes: /api/conversations?userId=...&limit=5 ---- */}
           <div className="space-y-6">
             {/* Recent Messages */}
             <Card>
@@ -327,4 +408,4 @@ export function PatientDashboard({ onNavigate }: PatientDashboardProps) {
       </div>
     </div>
   );
-}
+ } 
