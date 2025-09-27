@@ -1,12 +1,18 @@
-import { api } from "../lib/api";
+/**
+ * Auth-related types.
+ */
+import type { ISODate } from "./common";
 
-// TODO: CAMBIA A LO QUE USES: "/auth/login", "/api/auth/login", etc.
-const AUTH_PATH = "/auth";
+export type UserRole = "PATIENT" | "DOCTOR" | "ADMIN"; // from Users.Role (nvarchar(40))
+export type UserStatus = "ACTIVE" | "INVITED" | "PENDING" | "SUSPENDED" | "DELETED"; // from Users.Status (nvarchar(40)), adjust to actual values
 
-export type LoginDto = { email: string; password: string };
-export type AuthResult = { token?: string; userId: number; role: string };
-
-export async function login(dto: LoginDto) {
-  const { data } = await api.post<AuthResult>(`${AUTH_PATH}/login`, dto);
-  return data;
+export interface SessionInfo {
+  accessToken: string;
+  refreshToken?: string;
+  expiresAt: ISODate;
 }
+
+// === Merged from existing auth.ts ===
+export type LoginDto = { email: string; password: string };
+
+export type AuthResult = { token?: string; userId: number; role: string };
