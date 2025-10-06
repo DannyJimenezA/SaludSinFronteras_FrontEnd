@@ -5,19 +5,33 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
  *  Config desde .env
  *  ======================== */
 const API_BASE_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
-// Prefijo opcional tipo '/api' si usas app.setGlobalPrefix('api') en Nest
 const API_PREFIX = (import.meta.env.VITE_API_PREFIX as string | undefined) ?? ""; // ej: "/api"
 
-// Sanitiza el baseURL para evitar dobles slashes
+// Validación temprana (evita llamadas a "/")
+if (!API_BASE_URL) {
+  throw new Error(
+    "[API] VITE_API_URL no está definido. Configúralo en tu .env (p.ej. http://localhost:3000)"
+  );
+}
+
+// Une base + prefijo evitando dobles slashes
 const joinUrl = (base: string, prefix: string) => {
   const b = base.replace(/\/+$/, "");
-  const p = prefix.replace(/^\/?/, "/").replace(/\/+$/, "");
-  return `${b}${p}`;
+  if (!prefix) return b; // sin prefijo → solo base
+  const p = prefix.startsWith("/") ? prefix : `/${prefix}`;
+  return `${b}${p.replace(/\/+$/, "")}`;
 };
 
+const BASE = joinUrl(API_BASE_URL, API_PREFIX);
+
+// Log de arranque (solo dev) para confirmar a qué host apunta el front
+if (import.meta.env.DEV) {
+  console.info("[API] baseURL =", BASE);
+}
+
 export const api = axios.create({
-  baseURL: joinUrl(API_BASE_URL, API_PREFIX), // queda "https://host.tld[/api]"
-  withCredentials: false, // pon true si usaras cookies/sesión
+  baseURL: BASE, // queda "https://host.tld" o "https://host.tld/api"
+  withCredentials: false, // pon true si usas cookies/sesión
   timeout: 15000,
   headers: {
     "Content-Type": "application/json",
@@ -47,24 +61,27 @@ export function clearToken() {
  *  Request Interceptor
  *  ======================== */
 api.interceptors.request.use((cfg: InternalAxiosRequestConfig) => {
-  // Inyecta Bearer token si existe
   const token = getToken();
   if (token) {
     cfg.headers = cfg.headers ?? {};
-    cfg.headers.Authorization = `Bearer ${token}`;
+    (cfg.headers as any).Authorization = `Bearer ${token}`;
   }
 
-  // Log en desarrollo
   if (import.meta.env.DEV) {
     const method = (cfg.method || "GET").toUpperCase();
-    // Evita loggear passwords completos
-    const safeData =
-      cfg.data && typeof cfg.data === "object"
-        ? { ...cfg.data, password: cfg.data.password ? "***" : undefined }
-        : cfg.data;
+    // Enmascarar password y Password
+    const mask = (obj: any) =>
+      obj && typeof obj === "object"
+        ? {
+            ...obj,
+            password: obj.password ? "***" : undefined,
+            Password: obj.Password ? "***" : undefined,
+          }
+        : obj;
+
     console.debug(`[API] → ${method} ${cfg.baseURL}${cfg.url}`, {
       params: cfg.params,
-      data: safeData,
+      data: mask(cfg.data),
     });
   }
   return cfg;
@@ -87,20 +104,17 @@ api.interceptors.response.use(
     const status = error.response?.status;
     const cfg = error.config;
 
-    // Mapea mensajes del backend a un string legible (opcional)
     const backendMsg =
       (error.response?.data as any)?.message ??
       (error.response?.data as any)?.error ??
       error.message;
 
     if (status === 401) {
-      // Token inválido/expirado -> emite un evento para que tu AuthContext haga logout/redirección
       window.dispatchEvent(new CustomEvent("auth:unauthorized"));
-      // Si tienes refresh token, aquí podrías intentar refrescar (no implementado por simplicidad)
+      clearToken();
     }
 
     if (status === 403) {
-      // Sin permisos -> evento para UI
       window.dispatchEvent(new CustomEvent("auth:forbidden"));
     }
 
@@ -111,17 +125,13 @@ api.interceptors.response.use(
         error.response?.data
       );
     }
-
-    // Re-lanza el error para manejo en cada llamada
     return Promise.reject(error);
   }
 );
 
 /** ========================
- *  Helpers para construir paths (opcional)
+ *  Helper de path (opcional)
  *  ======================== */
-// Úsalo si quieres construir rutas consistentes: apiPath('/users/me') -> '/users/me' o '/api/users/me'
 export function apiPath(path: string) {
-  const p = path.startsWith("/") ? path : `/${path}`;
-  return p;
+  return path.startsWith("/") ? path : `/${path}`;
 }

@@ -7,9 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Globe, Mail, Phone, Facebook } from 'lucide-react';
 
-import { api } from '../lib/api';
-import { getMe } from '../services/user';
-import type { User } from '../types/users';
+import { getMe } from '../services/users';           // ✅ users (plural)
+import { login, registerPatient } from '../services/auth';
+import type { User } from '../types/user';          // ✅ users (plural)
 
 interface WelcomeLoginProps {
   onLogin: (userType: 'patient' | 'doctor' | 'admin') => void;
@@ -43,7 +43,7 @@ export function WelcomeLogin({ onLogin }: WelcomeLoginProps) {
       { code: 'en', name: 'English' },
       { code: 'fr', name: 'Français' },
       { code: 'pt', name: 'Português' },
-      { code: 'de', name: 'Deutsch' }
+      { code: 'de', name: 'Deutsch' },
     ],
     []
   );
@@ -55,36 +55,38 @@ export function WelcomeLogin({ onLogin }: WelcomeLoginProps) {
     return 'patient';
   };
 
+  // --- LOGIN real ---
   const handleLogin = async () => {
     setErrorMsg(null);
     setLoading(true);
     try {
-      // 1) Login → recibe { accessToken: string } (ajusta si tu payload tiene otro nombre)
-      const { data } = await api.post<{ accessToken: string }>('/auth/login', {
-        email,
-        password,
-      });
-      const token = (data as any).accessToken || (data as any).token;
-      if (!token) throw new Error('No se recibió token de acceso');
+      // 1) Login (el service guarda el token)
+      await login({ email, password });
 
-      localStorage.setItem('access_token', token);
-
-      // 2) Pide /users/me con el token recién guardado
+      // 2) Perfil
       const me = await getMe();
 
-      // 3) Redirige según rol
+      // 3) Validar que sea paciente
+      const role = (me.role || '').toString().toUpperCase();
+      if (role !== 'PATIENT') {
+        setErrorMsg('Esta cuenta no es de paciente.');
+        return;
+      }
+
+      // 4) Navegar por rol
       onLogin(mapRoleToUi(me));
     } catch (err: any) {
       setErrorMsg(
         err?.response?.data?.message ??
-        err?.message ??
-        'No se pudo iniciar sesión. Verifica tus credenciales.'
+          err?.message ??
+          'No se pudo iniciar sesión. Verifica tus credenciales.'
       );
     } finally {
       setLoading(false);
     }
   };
 
+  // --- REGISTER real (paciente/doctor) ---
   const handleRegister = async () => {
     setRegErrorMsg(null);
 
@@ -95,41 +97,28 @@ export function WelcomeLogin({ onLogin }: WelcomeLoginProps) {
 
     setRegLoading(true);
     try {
-      // Endpoint típico de registro; ajusta los nombres de campos a tu DTO real
-      // Si en tu backend pides FullName, también puedes enviar FullName: `${rFirstName} ${rLastName1} ${rLastName2 || ''}`.trim()
-      const payload: any = {
-        email: rEmail,
-        password: rPassword,
-        firstName1: rFirstName,
-        lastName1: rLastName1,
-        lastName2: rLastName2 || null,
-        role: userType === 'doctor' ? 'DOCTOR' : 'PATIENT',
-      };
+      // Construir FullName (tu backend espera PascalCase -> lo mapea el service)
+      const fullName = `${rFirstName} ${rLastName1}${rLastName2 ? ' ' + rLastName2 : ''}`.trim();
 
-      await api.post('/auth/register', payload);
+      // Si registras pacientes aquí, no envíes role (o ajusta backend si lo requieres)
+      await registerPatient({ email: rEmail, password: rPassword, fullName });
 
-      // Auto-login de cortesía (opcional; quítalo si tu flujo exige verificación de correo)
-      const { data } = await api.post<{ accessToken: string }>('/auth/login', {
-        email: rEmail,
-        password: rPassword,
-      });
-      const token = (data as any).accessToken || (data as any).token;
-      if (!token) throw new Error('No se recibió token de acceso después del registro');
-
-      localStorage.setItem('access_token', token);
+      // Autologin si el backend no lo hace
+      await login({ email: rEmail, password: rPassword });
 
       const me = await getMe();
       onLogin(mapRoleToUi(me));
     } catch (err: any) {
       setRegErrorMsg(
         err?.response?.data?.message ??
-        err?.message ??
-        'No se pudo crear la cuenta. Revisa los datos e inténtalo de nuevo.'
+          err?.message ??
+          'No se pudo crear la cuenta. Revisa los datos e inténtalo de nuevo.'
       );
     } finally {
       setRegLoading(false);
     }
   };
+
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -197,9 +186,7 @@ export function WelcomeLogin({ onLogin }: WelcomeLoginProps) {
                     />
                   </div>
 
-                  {errorMsg && (
-                    <p className="text-red-600 text-sm">{errorMsg}</p>
-                  )}
+                  {errorMsg && <p className="text-red-600 text-sm">{errorMsg}</p>}
 
                   <Button
                     className="w-full bg-primary hover:bg-primary/90"
@@ -326,9 +313,7 @@ export function WelcomeLogin({ onLogin }: WelcomeLoginProps) {
                     </div>
                   </div>
 
-                  {regErrorMsg && (
-                    <p className="text-red-600 text-sm">{regErrorMsg}</p>
-                  )}
+                  {regErrorMsg && <p className="text-red-600 text-sm">{regErrorMsg}</p>}
 
                   <Button
                     className="w-full bg-primary hover:bg-primary/90"

@@ -1,22 +1,125 @@
-import { api } from "../lib/api";
+// src/services/auth.ts
+import { api, setToken, clearToken } from "../lib/api";
 
+/** ===== Tipos ===== */
 export interface LoginPayload {
   email: string;
   password: string;
 }
 
-export interface LoginResponse {
-  token: string;
+export type LoginResponse =
+  | { access_token: string; refresh_token?: string }
+  | { accessToken: string; refreshToken?: string }
+  | { token: string };
+
+export interface RegisterPatientPayload {
+  email: string;
+  password: string;
+  fullName: string;
+}
+export interface RegisterResponse {
+  id?: string | number;
+  access_token?: string;
+  refresh_token?: string;
+  accessToken?: string;
+  refreshToken?: string;
+  token?: string;
 }
 
-// Login
-export async function login(payload: LoginPayload): Promise<LoginResponse> {
-  const { data } = await api.post<LoginResponse>("/login", payload);
+/** ===== Constantes ===== */
+const AUTH_LOGIN_PATH = "/auth/login";
+const AUTH_REGISTER_PATH = "/auth/register";
+const AUTH_REFRESH_PATH = "/auth/refresh";
+
+/** ===== Utils ===== */
+function normalizeTokens(data: any): { access?: string; refresh?: string } {
+  const access =
+    data?.access_token ??
+    data?.accessToken ??
+    data?.token ??
+    null;
+
+  const refresh =
+    data?.refresh_token ??
+    data?.refreshToken ??
+    null;
+
+  return { access: access ?? undefined, refresh: refresh ?? undefined };
+}
+
+/** ===== LOGIN =====
+ * Backend espera PascalCase: { Email, Password }
+ */
+export async function login({ email, password }: LoginPayload): Promise<string> {
+  const payload = { Email: email, Password: password };
+
+  if (import.meta.env.DEV) {
+    console.debug("[AUTH] login →", { Email: email, Password: "***" });
+  }
+
+  try {
+    const { data } = await api.post<LoginResponse>(AUTH_LOGIN_PATH, payload);
+    const { access } = normalizeTokens(data);
+    if (!access) throw new Error("No se recibió token de acceso");
+    setToken(access);
+    return access;
+  } catch (err: any) {
+    const status = err?.response?.status;
+    if (status === 404) {
+      throw new Error(
+        "Endpoint no encontrado (404). Revisa VITE_API_URL / VITE_API_PREFIX y que el backend exponga /auth/login."
+      );
+    }
+    const msg =
+      err?.response?.data?.message ??
+      err?.response?.data?.error ??
+      err?.message ??
+      "No se pudo iniciar sesión";
+    throw new Error(String(msg));
+  }
+}
+
+/** ===== LOGOUT ===== */
+export function logout(): void {
+  clearToken();
+}
+
+/** ===== REGISTER paciente =====
+ * Backend espera: { Email, Password, FullName } (PascalCase)
+ */
+export async function registerPatient(
+  payload: RegisterPatientPayload
+): Promise<RegisterResponse> {
+  const dto = {
+    Email: payload.email,
+    Password: payload.password,
+    FullName: payload.fullName,
+  };
+
+  if (import.meta.env.DEV) {
+    console.debug("[AUTH] registerPatient →", {
+      Email: payload.email,
+      Password: "***",
+      FullName: payload.fullName,
+    });
+  }
+
+  const { data } = await api.post<RegisterResponse>(AUTH_REGISTER_PATH, dto);
+
+  // si el backend devuelve tokens, los guardamos
+  const { access } = normalizeTokens(data);
+  if (access) setToken(access);
+
   return data;
 }
 
-// Register fake
-export async function register(payload: LoginPayload): Promise<{ id: string; token: string }> {
-  const { data } = await api.post<{ id: string; token: string }>("/register", payload);
-  return data;
+/** ===== REFRESH opcional =====
+ * Soporta access_token / accessToken / token
+ */
+export async function refreshToken(): Promise<string> {
+  const { data } = await api.post<LoginResponse>(AUTH_REFRESH_PATH, {});
+  const { access } = normalizeTokens(data);
+  if (!access) throw new Error("No se recibió un token nuevo en refresh");
+  setToken(access);
+  return access;
 }

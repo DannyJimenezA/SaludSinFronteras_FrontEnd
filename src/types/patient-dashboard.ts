@@ -4,7 +4,7 @@
  */
 import type { Id, ISODate } from "./common";
 import type { Appointment } from "./appointments";
-import type { User } from "./users";
+import type { User } from "./user";
 import { ReactNode } from "react";
 
 // Core view models expected by PatientDashboard component
