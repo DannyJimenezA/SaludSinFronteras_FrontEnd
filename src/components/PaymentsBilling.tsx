@@ -22,9 +22,10 @@ import {
   Crown,
   Gift
 } from 'lucide-react';
+import { NavigateFn } from '../types/navs';
 
 interface PaymentsBillingProps {
-  onNavigate: (screen: string) => void;
+  onNavigate: NavigateFn;
 }
 
 export function PaymentsBilling({ onNavigate }: PaymentsBillingProps) {

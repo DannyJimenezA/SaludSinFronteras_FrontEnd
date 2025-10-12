@@ -17,6 +17,8 @@ export interface RegisterPatientPayload {
   password: string;
   fullName: string;
 }
+export type RegisterDoctorPayload = RegisterPatientPayload;
+
 export interface RegisterResponse {
   id?: string | number;
   access_token?: string;
@@ -106,16 +108,43 @@ export async function registerPatient(
 
   const { data } = await api.post<RegisterResponse>(AUTH_REGISTER_PATH, dto);
 
-  // si el backend devuelve tokens, los guardamos
   const { access } = normalizeTokens(data);
   if (access) setToken(access);
 
   return data;
 }
 
-/** ===== REFRESH opcional =====
- * Soporta access_token / accessToken / token
+/** ===== REGISTER médico =====
+ * Igual que paciente, pero enviando Role: "DOCTOR"
  */
+export async function registerDoctor(
+  payload: RegisterDoctorPayload
+): Promise<RegisterResponse> {
+  const dto = {
+    Email: payload.email,
+    Password: payload.password,
+    FullName: payload.fullName,
+    Role: "DOCTOR", // <- clave para crear la cuenta como médico
+  };
+
+  if (import.meta.env.DEV) {
+    console.debug("[AUTH] registerDoctor →", {
+      Email: payload.email,
+      Password: "***",
+      FullName: payload.fullName,
+      Role: "DOCTOR",
+    });
+  }
+
+  const { data } = await api.post<RegisterResponse>(AUTH_REGISTER_PATH, dto);
+
+  const { access } = normalizeTokens(data);
+  if (access) setToken(access);
+
+  return data;
+}
+
+/** ===== REFRESH opcional ===== */
 export async function refreshToken(): Promise<string> {
   const { data } = await api.post<LoginResponse>(AUTH_REFRESH_PATH, {});
   const { access } = normalizeTokens(data);

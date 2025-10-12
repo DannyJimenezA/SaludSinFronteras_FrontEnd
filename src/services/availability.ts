@@ -13,6 +13,7 @@
  * - 'from' y 'to' deben ser cadenas ISO8601 en UTC (ej: 2025-09-27T00:00:00Z).
  * - Si tu backend devuelve { data: [...] }, lo manejamos; si devuelve [] plano, también.
  */
+/*
 import { api } from "../lib/api";
 import { useQuery, useMutation, keepPreviousData } from "@tanstack/react-query";
 import type { ApiList, ApiSuccess } from "../types/common";
@@ -34,7 +35,7 @@ export interface AvailabilityParams {
 
 /** ————————————————————————————————————————————————
  *  Versión promesa (sin hooks) — listar por rango
- *  ———————————————————————————————————————————————— */
+ *  ———————————————————————————————————————————————— 
 export async function listAvailability(doctorUserId: string, params: AvailabilityParams): Promise<AvailabilitySlot[]> {
   if (!doctorUserId) throw new Error("doctorUserId requerido");
   if (!params?.from || !params?.to) throw new Error("from y to son requeridos (ISO UTC)");
@@ -43,7 +44,7 @@ export async function listAvailability(doctorUserId: string, params: Availabilit
   return Array.isArray(data) ? data : (data?.data ?? []);
 }
 
-/** Hook React Query — listar por rango */
+/** Hook React Query — listar por rango 
 export function useAvailability(doctorUserId?: string, params?: AvailabilityParams) {
   return useQuery({
     queryKey: ["availability", doctorUserId, params],
@@ -60,7 +61,7 @@ export function useAvailability(doctorUserId?: string, params?: AvailabilityPara
 
 /** ————————————————————————————————————————————————
  *  Mutations para el panel del doctor (opcionales)
- *  ———————————————————————————————————————————————— */
+ *  ———————————————————————————————————————————————— 
 export interface CreateAvailabilityPayload {
   // Puedes crear uno o varios slots
   slots: Array<Pick<AvailabilitySlot, "startAt" | "endAt"> & { isRecurring?: boolean; rrule?: string }>;
@@ -93,4 +94,26 @@ export function useDeleteAvailability(doctorUserId: string, slotId: string) {
       await api.delete(R.DELETE(doctorUserId, slotId));
     },
   });
+}
+*/
+// Lista los slots de un doctor (por día opcional)
+import { api } from "../lib/api";
+import type { AvailabilitySlot } from "../types/appointments";
+import type { Id } from "../types/common";
+
+export interface AvailabilityParams {
+  from: string;  // ISO UTC
+  to: string;    // ISO UTC
+  tz?: string;   // "America/Mexico_City"
+}
+
+export async function listAvailability(
+  doctorUserId: Id,
+  params: AvailabilityParams
+): Promise<AvailabilitySlot[]> {
+  // Real:
+  // const { data } = await api.get(`/doctors/${doctorUserId}/availability`, { params });
+  // return data;
+
+  return [];
 }

@@ -6,9 +6,12 @@ import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Globe, Mail, Phone, Facebook } from 'lucide-react';
+// arriba con el resto de imports
+import Swal from 'sweetalert2';
+
 
 import { getMe } from '../services/users';           // ✅ users (plural)
-import { login, registerPatient } from '../services/auth';
+import { login, registerPatient, registerDoctor } from '../services/auth';
 import type { User } from '../types/user';          // ✅ users (plural)
 
 interface WelcomeLoginProps {
@@ -55,69 +58,88 @@ export function WelcomeLogin({ onLogin }: WelcomeLoginProps) {
     return 'patient';
   };
 
-  // --- LOGIN real ---
-  const handleLogin = async () => {
-    setErrorMsg(null);
-    setLoading(true);
-    try {
-      // 1) Login (el service guarda el token)
-      await login({ email, password });
+ // --- LOGIN real ---
+const handleLogin = async () => {
+  setErrorMsg(null);
+  setLoading(true);
+  try {
+    await login({ email: email.trim(), password });
 
-      // 2) Perfil
-      const me = await getMe();
-
-      // 3) Validar que sea paciente
-      const role = (me.role || '').toString().toUpperCase();
-      if (role !== 'PATIENT') {
-        setErrorMsg('Esta cuenta no es de paciente.');
-        return;
-      }
-
-      // 4) Navegar por rol
-      onLogin(mapRoleToUi(me));
-    } catch (err: any) {
-      setErrorMsg(
-        err?.response?.data?.message ??
-          err?.message ??
-          'No se pudo iniciar sesión. Verifica tus credenciales.'
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // --- REGISTER real (paciente/doctor) ---
-  const handleRegister = async () => {
-    setRegErrorMsg(null);
-
-    if (rPassword !== rPassword2) {
-      setRegErrorMsg('Las contraseñas no coinciden.');
+    const me = await getMe();
+    const uiRole = mapRoleToUi(me); // 'patient' | 'doctor' | 'admin'
+    if (!['patient', 'doctor', 'admin'].includes(uiRole)) {
+      setErrorMsg('Tu cuenta no tiene un rol válido para acceder.');
       return;
     }
 
-    setRegLoading(true);
-    try {
-      // Construir FullName (tu backend espera PascalCase -> lo mapea el service)
-      const fullName = `${rFirstName} ${rLastName1}${rLastName2 ? ' ' + rLastName2 : ''}`.trim();
+    const roleLabel = uiRole === 'doctor' ? 'doctor' : uiRole === 'admin' ? 'administrador' : 'paciente';
+    await Swal.fire({
+      icon: 'success',
+      title: `¡Bienvenido, ${roleLabel}!`,
+      text: `Inicio de sesión exitoso${me.fullName ? `, ${me.fullName}` : ''}.`,
+      confirmButtonText: 'Continuar',
+      confirmButtonColor: '#0f766e',
+    });
 
-      // Si registras pacientes aquí, no envíes role (o ajusta backend si lo requieres)
-      await registerPatient({ email: rEmail, password: rPassword, fullName });
+    onLogin(uiRole); // ← envía a dashboard correcto
+  } catch (err: any) {
+    const msg =
+      err?.response?.data?.message ??
+      err?.message ??
+      'No se pudo iniciar sesión. Verifica tus credenciales.';
+    setErrorMsg(msg);
+  } finally {
+    setLoading(false);
+  }
+};
 
-      // Autologin si el backend no lo hace
-      await login({ email: rEmail, password: rPassword });
 
-      const me = await getMe();
-      onLogin(mapRoleToUi(me));
-    } catch (err: any) {
-      setRegErrorMsg(
-        err?.response?.data?.message ??
-          err?.message ??
-          'No se pudo crear la cuenta. Revisa los datos e inténtalo de nuevo.'
-      );
-    } finally {
-      setRegLoading(false);
+
+  // --- REGISTER real (paciente/doctor) ---
+  const handleRegister = async () => {
+  setRegErrorMsg(null);
+
+  if (rPassword !== rPassword2) {
+    setRegErrorMsg('Las contraseñas no coinciden.');
+    return;
+  }
+
+  setRegLoading(true);
+  try {
+    const fullName = `${rFirstName} ${rLastName1}${rLastName2 ? ' ' + rLastName2 : ''}`.trim();
+
+    // Registrar según “Tipo de Usuario”
+    if (userType === 'doctor') {
+      await registerDoctor({ email: rEmail.trim(), password: rPassword, fullName });
+    } else {
+      await registerPatient({ email: rEmail.trim(), password: rPassword, fullName });
     }
-  };
+
+    // Auto-login y redirección por rol
+    await login({ email: rEmail.trim(), password: rPassword });
+    const me = await getMe();
+    const uiRole = mapRoleToUi(me);
+
+    await Swal.fire({
+      icon: 'success',
+      title: '¡Cuenta creada!',
+      text: `Bienvenido${me.fullName ? `, ${me.fullName}` : ''}.`,
+      confirmButtonText: 'Continuar',
+      confirmButtonColor: '#0f766e',
+    });
+
+    onLogin(uiRole);
+  } catch (err: any) {
+    setRegErrorMsg(
+      err?.response?.data?.message ??
+        err?.message ??
+        'No se pudo crear la cuenta. Revisa los datos e inténtalo de nuevo.'
+    );
+  } finally {
+    setRegLoading(false);
+  }
+};
+
 
 
   return (

@@ -1,23 +1,24 @@
-/**
- * hooks/useBookAppointment.ts
- * Orquesta el flujo: doctores → disponibilidad (slots) → crear cita
- * Compatible con React Query v5. Usa los services ya creados (FAKE routes).
- *
- * Dirige estado y acciones típicas del agendador:
- *  - búsqueda/filtrado de doctores (search/specialty/country + paginación)
- *  - rango de fechas para consultar slots
- *  - selección de doctor y de slot
- *  - creación de cita (POST /appointments)
- *
- * Cómo usar (ejemplo):
- * const hook = useBookAppointment({ patientUserId: me.id, defaultDurationMin: 30, defaultModality: "VIDEO" });
- * // hook.doctors, hook.slots, hook.actions.selectDoctor(...), hook.actions.setRange(...), hook.actions.book(...)
- */
-
+// src/hooks/useBookAppointment.ts
 import { useMemo, useState } from "react";
-import { useDoctors, type DoctorsSearch, type DoctorListItem } from "../services/doctors";
-import { useAvailability, type AvailabilityParams } from "../services/availability";
-import { useCreateAppointment, type CreateAppointmentPayload } from "../services/appointments";
+import { useQuery, useMutation, keepPreviousData } from "@tanstack/react-query"; // <-- importa el helper
+
+
+import {
+  listDoctors,
+  type DoctorsSearch,
+  type DoctorListItem,
+} from "../services/doctors";
+
+import {
+  listAvailability,
+  type AvailabilityParams,
+} from "../services/availability";
+
+import {
+  createAppointment,
+  type CreateAppointmentPayload,
+} from "../services/appointments";
+
 import type { AvailabilitySlot } from "../types/appointments";
 import type { Id } from "../types/common";
 
@@ -28,25 +29,20 @@ export interface UseBookAppointmentOptions {
   initialSearch?: string;
   initialSpecialtyId?: string;
   initialCountryId?: string;
-  defaultDurationMin?: number; // si tu slot no especifica duración, usamos este valor
+  defaultDurationMin?: number;
   defaultModality?: Modality;
   initialFrom?: string; // ISO UTC
   initialTo?: string;   // ISO UTC
 }
 
 export interface UseBookAppointmentState {
-  // Filtros de doctores
   search: string;
   specialtyId?: string;
   countryId?: string;
   page: number;
   perPage: number;
-
-  // Selecciones
   selectedDoctorId?: Id;
   selectedSlot?: AvailabilitySlot;
-
-  // Rango para slots
   from?: string;
   to?: string;
   tz?: string;
@@ -64,9 +60,7 @@ export function useBookAppointment(opts: UseBookAppointmentOptions) {
     initialTo,
   } = opts;
 
-  // —————————————————————————————————————
   // Estado local
-  // —————————————————————————————————————
   const [search, setSearch] = useState(initialSearch);
   const [specialtyId, setSpecialtyId] = useState<string | undefined>(initialSpecialtyId);
   const [countryId, setCountryId] = useState<string | undefined>(initialCountryId);
@@ -80,34 +74,41 @@ export function useBookAppointment(opts: UseBookAppointmentOptions) {
   const [to, setTo] = useState<string | undefined>(initialTo);
   const [tz, setTz] = useState<string | undefined>(Intl.DateTimeFormat().resolvedOptions().timeZone);
 
-  // —————————————————————————————————————
-  // Queries
-  // —————————————————————————————————————
-  const doctorsParams: DoctorsSearch = useMemo(() => ({
-    search, specialtyId, countryId, page, perPage
-  }), [search, specialtyId, countryId, page, perPage]);
+  // Params doctores
+  const doctorsParams: DoctorsSearch = useMemo(
+    () => ({ search, specialtyId, countryId, page, perPage }),
+    [search, specialtyId, countryId, page, perPage]
+  );
 
-  const doctorsQuery = useDoctors(doctorsParams);
+  const doctorsQuery = useQuery({
+  queryKey: ["doctors", doctorsParams],
+  queryFn: () => listDoctors(doctorsParams),
+  placeholderData: keepPreviousData,  // <-- en v5 se usa así
+  staleTime: 30_000,
+});
 
+  // Params disponibilidad
   const availabilityParams: AvailabilityParams | undefined = useMemo(() => {
     if (!from || !to) return undefined;
     return { from, to, tz };
   }, [from, to, tz]);
 
-  const availabilityQuery = useAvailability(selectedDoctorId, availabilityParams);
+  const availabilityQuery = useQuery({
+    enabled: !!selectedDoctorId && !!availabilityParams,
+    queryKey: ["availability", selectedDoctorId, availabilityParams],
+    queryFn: () => listAvailability(selectedDoctorId!, availabilityParams!),
+    staleTime: 10_000,
+  });
 
-  // —————————————————————————————————————
-  // Mutation (crear cita)
-  // —————————————————————————————————————
-  const createMutation = useCreateAppointment();
+  // Crear cita
+  const createMutation = useMutation({
+    mutationFn: (body: CreateAppointmentPayload) => createAppointment(body),
+  });
 
-  // —————————————————————————————————————
   // Helpers
-  // —————————————————————————————————————
   function selectDoctor(userId?: Id) {
     setSelectedDoctorId(userId);
-    setSelectedSlot(undefined); // al cambiar doctor, limpiar slot
-    // Opcional: resetear paginación de slots si la tuvieras
+    setSelectedSlot(undefined);
   }
 
   function setRange(range: { from: string; to: string; tz?: string }) {
@@ -124,16 +125,28 @@ export function useBookAppointment(opts: UseBookAppointmentOptions) {
     reason?: string;
     notes?: string;
     modality?: Modality;
-    durationMin?: number; // si quieres override
-    slotId?: string;      // si tu backend lo exige
+    durationMin?: number;
+    slotId?: string;
   }) {
     if (!selectedDoctorId) throw new Error("Debes seleccionar un doctor");
     if (!selectedSlot) throw new Error("Debes seleccionar un horario (slot)");
 
-    // Determinar duración: del slot o default
-    const start = (selectedSlot as any).startAt || (selectedSlot as any).start || selectedSlot?.startAt;
-    const end = (selectedSlot as any).endAt || (selectedSlot as any).end || selectedSlot?.endAt;
+    const start =
+      (selectedSlot as any).startAt ||
+      (selectedSlot as any).start ||
+      (selectedSlot as any).StartAt ||
+      (selectedSlot as any).Start ||
+      (selectedSlot as any).start_at;
+
+    const end =
+      (selectedSlot as any).endAt ||
+      (selectedSlot as any).end ||
+      (selectedSlot as any).EndAt ||
+      (selectedSlot as any).End ||
+      (selectedSlot as any).end_at;
+
     if (!start) throw new Error("El slot no tiene 'startAt'");
+
     let durationMin = payload?.durationMin ?? defaultDurationMin;
     if (start && end) {
       const ms = Math.max(0, new Date(end).getTime() - new Date(start).getTime());
@@ -149,16 +162,13 @@ export function useBookAppointment(opts: UseBookAppointmentOptions) {
       modality: payload?.modality ?? defaultModality,
       reason: payload?.reason,
       notes: payload?.notes,
-      slotId: payload?.slotId, // opcional
+      slotId: payload?.slotId,
     };
 
     const created = await createMutation.mutateAsync(body);
     return created;
   }
 
-  // —————————————————————————————————————
-  // Resultado
-  // —————————————————————————————————————
   return {
     // datos
     doctors: doctorsQuery.data as DoctorListItem[] | undefined,
@@ -175,17 +185,30 @@ export function useBookAppointment(opts: UseBookAppointmentOptions) {
 
     // filtros/params actuales
     state: {
-      search, specialtyId, countryId, page, perPage, from, to, tz,
+      search,
+      specialtyId,
+      countryId,
+      page,
+      perPage,
+      from,
+      to,
+      tz,
     } as UseBookAppointmentState,
 
     // acciones
     actions: {
-      setSearch, setSpecialtyId, setCountryId, setPage, setPerPage,
-      selectDoctor, setRange, pickSlot,
+      setSearch,
+      setSpecialtyId,
+      setCountryId,
+      setPage,
+      setPerPage,
+      selectDoctor,
+      setRange,
+      pickSlot,
       book,
     },
 
-    // mutation state
+    // estado mutation
     booking: {
       isPending: createMutation.isPending,
       error: createMutation.error as unknown,

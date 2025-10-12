@@ -1,7 +1,10 @@
+import { useState, useMemo, useEffect } from "react";
+import Swal from "sweetalert2";
+
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { Avatar, AvatarFallback } from "./ui/avatar";
 import {
   Calendar,
   Clock,
@@ -14,14 +17,16 @@ import {
   MapPin,
   Languages,
 } from "lucide-react";
-import { usePatientDashboard } from "../hooks/usePatientDashboard"; // <- ojo al nombre del archivo
 
-// ---------------- Tipos de datos que espera el dashboard ----------------
+import { usePatientDashboard } from "../hooks/usePatientDashboard";
+import { useDoctorAvailability, useCreateAppointment } from "../hooks/useSchedule";
+
+/* ---------------- Tipos “view model” locales ---------------- */
 type UpcomingAppointment = {
   id: number;
   doctor: string;
   specialty: string;
-  date: string;   // ISO 'YYYY-MM-DD'
+  date: string;   // 'YYYY-MM-DD'
   time: string;   // 'HH:mm'
   type: "videollamada" | "presencial";
 };
@@ -41,27 +46,32 @@ type RecentMessage = {
   from: string;
   preview: string;
   unread?: boolean;
-  at?: string; // fecha/hora opcional
+  at?: string;
 };
 
-// ---------------- Props del componente ----------------
+/* Slots que devuelve el servicio de disponibilidad */
+type SlotVM = {
+  id: number;
+  startAt: string; // ISO
+  endAt: string;   // ISO
+};
+
+/* ---------------- Props ---------------- */
 interface PatientDashboardProps {
   onNavigate: (screen: string) => void;
   patientId: number;
-  patientName?: string; // opcional para encabezado
+  patientName?: string;
 }
 
-// ---------------- Componente ----------------
+/* ---------------- Componente ---------------- */
 export function PatientDashboard({
   onNavigate,
   patientId,
   patientName = "Paciente",
 }: PatientDashboardProps) {
-  // Llama al hook que obtiene los datos del backend
-  const { data, isLoading, error, refetch, isFetching } =
-    usePatientDashboard(patientId);
+  /* Panel del paciente (3 widgets) */
+  const { data, isLoading, error, refetch, isFetching } = usePatientDashboard(patientId);
 
-  // Normaliza/asegura arrays aunque no haya datos
   const upcomingAppointments: UpcomingAppointment[] =
     (data?.upcomingAppointments as UpcomingAppointment[]) ?? [];
 
@@ -71,8 +81,73 @@ export function PatientDashboard({
   const recentMessages: RecentMessage[] =
     (data?.recentMessages as unknown as RecentMessage[]) ?? [];
 
-  // (Opcional) Estados de carga / error antes del return "grande".
-  // Si prefieres mostrarlos dentro del JSX principal, elimina estos returns tempranos.
+  /* ----------- Estados de “Agendar Cita” ----------- */
+  const [selectedDoctorId, setSelectedDoctorId] = useState<number | null>(null);
+  const [selectedDateISO, setSelectedDateISO] = useState<string | null>(null); // YYYY-MM-DD
+
+  // Si eliges un doctor y no hay fecha, auto-seteo hoy
+  useEffect(() => {
+    if (selectedDoctorId && !selectedDateISO) {
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, "0");
+      const dd = String(today.getDate()).padStart(2, "0");
+      setSelectedDateISO(`${yyyy}-${mm}-${dd}`);
+    }
+  }, [selectedDoctorId, selectedDateISO]);
+
+  const doctorOptions = useMemo(
+    () =>
+      (recommendedDoctors ?? []).map((d) => ({
+        id: Number(d.id),
+        name: d.name,
+        specialty: d.specialty,
+      })),
+    [recommendedDoctors]
+  );
+
+  const {
+    data: slots = [],
+    isLoading: slotsLoading,
+    refetch: refetchSlots,
+  } = useDoctorAvailability(
+    selectedDoctorId ?? undefined,
+    selectedDateISO ?? undefined
+  );
+
+  const createAppt = useCreateAppointment();
+
+  async function onBook(slotId: number) {
+    if (!selectedDoctorId) return;
+    try {
+      await createAppt.mutateAsync({
+        doctorId: selectedDoctorId,
+        slotId,
+        modality: "video", // el hook ya mapea a "online"
+      });
+
+      await Swal.fire({
+        icon: "success",
+        title: "¡Cita creada!",
+        text: "Tu cita fue agendada correctamente.",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#0f766e",
+      });
+
+      // refrescamos panel y disponibilidad
+      refetch();
+      refetchSlots();
+      // onNavigate("appointments");
+    } catch (e: any) {
+      await Swal.fire({
+        icon: "error",
+        title: "No se pudo agendar",
+        text: e?.response?.data?.message ?? e?.message ?? "Intenta de nuevo.",
+      });
+    }
+  }
+
+  /* ----------- Estados globales de carga/error ----------- */
   if (isLoading && !data) {
     return (
       <div className="min-h-screen grid place-items-center p-6">
@@ -85,9 +160,7 @@ export function PatientDashboard({
     return (
       <div className="min-h-screen grid place-items-center p-6">
         <div className="space-y-3 text-center">
-          <p className="text-red-600 font-medium">
-            Ocurrió un error al cargar tu panel.
-          </p>
+          <p className="text-red-600 font-medium">Ocurrió un error al cargar tu panel.</p>
           <Button onClick={() => refetch()} disabled={isFetching}>
             Reintentar
           </Button>
@@ -96,66 +169,14 @@ export function PatientDashboard({
     );
   }
 
-/*
-  export function PatientDashboard({ onNavigate }: PatientDashboardProps) {
-  const upcomingAppointments = [ 
-    {
-      id: 1,
-      doctor: 'Dr. Ana García',
-      specialty: 'Cardiología',
-      date: '2025-09-10',
-      time: '14:30',
-      type: 'videollamada'
-    },
-    {
-      id: 2,
-      doctor: 'Dr. Luis Chen',
-      specialty: 'Medicina General',
-      date: '2025-09-15',
-      time: '09:00',
-      type: 'presencial'
-    }
-  ];
-
-  const recommendedDoctors = [
-    {
-      id: 1,
-      name: 'Dr. María González',
-      specialty: 'Dermatología',
-      rating: 4.9,
-      location: 'Madrid, España',
-      languages: ['Español', 'Inglés'],
-      available: true
-    },
-    {
-      id: 2,
-      name: 'Dr. James Wilson',
-      specialty: 'Medicina Interna',
-      rating: 4.8,
-      location: 'Nueva York, USA',
-      languages: ['Inglés', 'Español'],
-      available: true
-    },
-    {
-      id: 3,
-      name: 'Dr. Sophie Dubois',
-      specialty: 'Neurología',
-      rating: 4.7,
-      location: 'París, Francia',
-      languages: ['Francés', 'Inglés'],
-      available: false
-    }
-  ];
-}
-*/
-
+  /* ---------------- Render ---------------- */
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-primary">¡Hola, Juan!</h1>
+            <h1 className="text-3xl font-bold text-primary">¡Hola, {patientName}!</h1>
             <p className="text-muted-foreground">Tu salud es nuestra prioridad</p>
           </div>
           <div className="flex items-center gap-2">
@@ -165,16 +186,105 @@ export function PatientDashboard({
                 3
               </Badge>
             </Button>
-            <Button variant="outline" onClick={() => onNavigate('settings')}>
+            <Button variant="outline" onClick={() => onNavigate("settings")}>
               Configuración
             </Button>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column */}
+          {/* ---------------- Columna Izquierda ---------------- */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Quick Actions */}
+            {/* Agendar Cita */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  Agendar Cita
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Doctor */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Médico</label>
+                  <select
+                    className="w-full border rounded-md p-2 bg-white"
+                    value={selectedDoctorId ?? ""}
+                    onChange={(e) =>
+                      setSelectedDoctorId(e.target.value ? Number(e.target.value) : null)
+                    }
+                  >
+                    <option value="">Selecciona un médico…</option>
+                    {doctorOptions.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name} — {d.specialty}
+                      </option>
+                    ))}
+                  </select>
+                  {doctorOptions.length === 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      No hay médicos recomendados disponibles por ahora.
+                    </p>
+                  )}
+                </div>
+
+                {/* Fecha */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Fecha</label>
+                  <input
+                    type="date"
+                    className="border rounded-md p-2 bg-white"
+                    value={selectedDateISO ?? ""}
+                    onChange={(e) => setSelectedDateISO(e.target.value || null)}
+                    disabled={!selectedDoctorId}
+                  />
+                </div>
+
+                {/* Slots */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">Horarios disponibles</label>
+                    <span className="text-xs text-muted-foreground">
+                      (El médico debe publicar disponibilidad)
+                    </span>
+                  </div>
+
+                  {!selectedDoctorId || !selectedDateISO ? (
+                    <p className="text-sm text-muted-foreground">
+                      Selecciona médico y fecha para ver los horarios.
+                    </p>
+                  ) : slotsLoading ? (
+                    <p className="text-sm text-muted-foreground">Cargando horarios…</p>
+                  ) : !slots || slots.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No hay horarios para esta fecha.
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {(slots as SlotVM[]).map((s) => {
+                        const start = new Date(s.startAt);
+                        const hh = String(start.getHours()).padStart(2, "0");
+                        const mm = String(start.getMinutes()).padStart(2, "0");
+                        const label = `${hh}:${mm}`;
+                        return (
+                          <Button
+                            key={s.id}
+                            variant="outline"
+                            className="min-w-[84px]"
+                            onClick={() => onBook(s.id)}
+                            disabled={createAppt.isPending}
+                          >
+                            {label}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Acciones rápidas */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -184,30 +294,27 @@ export function PatientDashboard({
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <Button 
+                  <Button
                     className="h-auto flex-col gap-2 p-4"
-                    onClick={() => onNavigate('search-doctors')}
+                    onClick={() => onNavigate("search-doctors")}
                   >
                     <Search className="h-6 w-6" />
                     Buscar Médicos
                   </Button>
-                  <Button 
+                  <Button
                     className="h-auto flex-col gap-2 p-4"
-                    onClick={() => onNavigate('appointments')}
+                    onClick={() => onNavigate("appointments")}
                   >
                     <Calendar className="h-6 w-6" />
                     Agendar Cita
                   </Button>
-                  <Button 
-                    className="h-auto flex-col gap-2 p-4"
-                    onClick={() => onNavigate('history')}
-                  >
+                  <Button className="h-auto flex-col gap-2 p-4" onClick={() => onNavigate("history")}>
                     <FileText className="h-6 w-6" />
                     Mi Historial
                   </Button>
-                  <Button 
+                  <Button
                     className="h-auto flex-col gap-2 p-4"
-                    onClick={() => onNavigate('video-call')}
+                    onClick={() => onNavigate("video-call")}
                   >
                     <Video className="h-6 w-6" />
                     Videollamada
@@ -216,7 +323,7 @@ export function PatientDashboard({
               </CardContent>
             </Card>
 
-            {/* Upcoming Appointments */}
+            {/* Próximas citas */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -225,8 +332,14 @@ export function PatientDashboard({
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {upcomingAppointments.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    Aún no tienes citas. ¡Agenda la primera!
+                  </p>
+                )}
+
                 {upcomingAppointments.map((appointment) => (
-                  <div 
+                  <div
                     key={appointment.id}
                     className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
                   >
@@ -239,37 +352,36 @@ export function PatientDashboard({
                         <p className="text-sm text-muted-foreground">{appointment.specialty}</p>
                         <div className="flex items-center gap-2 mt-1">
                           <Clock className="h-3 w-3" />
-                          <span className="text-xs">{appointment.date} - {appointment.time}</span>
+                          <span className="text-xs">
+                            {appointment.date} - {appointment.time}
+                          </span>
                         </div>
                       </div>
                     </div>
                     <div className="text-right">
-                      <Badge variant={appointment.type === 'videollamada' ? 'default' : 'secondary'}>
+                      <Badge
+                        variant={
+                          appointment.type === "videollamada" ? "default" : "secondary"
+                        }
+                      >
                         {appointment.type}
                       </Badge>
-                      {appointment.type === 'videollamada' && (
-                        <Button 
-                          size="sm" 
-                          className="mt-2"
-                          onClick={() => onNavigate('video-call')}
-                        >
+                      {appointment.type === "videollamada" && (
+                        <Button className="mt-2" size="sm" onClick={() => onNavigate("video-call")}>
                           Unirse
                         </Button>
                       )}
                     </div>
                   </div>
                 ))}
-                <Button 
-                  variant="outline" 
-                  className="w-full"
-                  onClick={() => onNavigate('appointments')}
-                >
+
+                <Button variant="outline" className="w-full" onClick={() => onNavigate("appointments")}>
                   Ver Todas las Citas
                 </Button>
               </CardContent>
             </Card>
 
-            {/* Recommended Doctors */}
+            {/* Médicos recomendados */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -278,14 +390,27 @@ export function PatientDashboard({
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {recommendedDoctors.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    No hay recomendaciones por ahora.
+                  </p>
+                )}
+
                 {recommendedDoctors.map((doctor) => (
-                  <div 
+                  <div
                     key={doctor.id}
                     className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
                   >
                     <div className="flex items-center gap-4">
                       <Avatar className="h-12 w-12">
-                        <AvatarFallback>{doctor.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                        <AvatarFallback>
+                          {doctor.name
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")
+                            .slice(0, 2)
+                            .toUpperCase()}
+                        </AvatarFallback>
                       </Avatar>
                       <div>
                         <h4 className="font-medium">{doctor.name}</h4>
@@ -302,19 +427,22 @@ export function PatientDashboard({
                         </div>
                         <div className="flex items-center gap-1 mt-1">
                           <Languages className="h-3 w-3" />
-                          <span className="text-xs">{doctor.languages.join(', ')}</span>
+                          <span className="text-xs">{doctor.languages.join(", ")}</span>
                         </div>
                       </div>
                     </div>
                     <div className="text-right">
-                      <Badge variant={doctor.available ? 'default' : 'secondary'}>
-                        {doctor.available ? 'Disponible' : 'Ocupado'}
+                      <Badge variant={doctor.available ? "default" : "secondary"}>
+                        {doctor.available ? "Disponible" : "Ocupado"}
                       </Badge>
-                      <Button 
-                        size="sm" 
+                      <Button
+                        size="sm"
                         className="mt-2"
                         disabled={!doctor.available}
-                        onClick={() => onNavigate('appointments')}
+                        onClick={() => {
+                          setSelectedDoctorId(Number(doctor.id));
+                          onNavigate("appointments"); // o quédate en el dashboard si prefieres
+                        }}
                       >
                         Agendar
                       </Button>
@@ -325,10 +453,9 @@ export function PatientDashboard({
             </Card>
           </div>
 
-          {/* Right Column */}
-          {/* ---- Mensajes recientes: /api/conversations?userId=...&limit=5 ---- */}
+          {/* ---------------- Columna Derecha ---------------- */}
           <div className="space-y-6">
-            {/* Recent Messages */}
+            {/* Mensajes recientes */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -337,67 +464,65 @@ export function PatientDashboard({
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="flex items-center gap-3 p-3 border rounded-lg">
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback>AG</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Dr. Ana García</p>
-                    <p className="text-xs text-muted-foreground">Resultados de análisis listos</p>
+                {recentMessages.length === 0 && (
+                  <p className="text-sm text-muted-foreground">Sin mensajes recientes.</p>
+                )}
+
+                {recentMessages.map((m) => (
+                  <div key={m.id} className="flex items-center gap-3 p-3 border rounded-lg">
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback>
+                        {m.from
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")
+                          .slice(0, 2)
+                          .toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{m.from}</p>
+                      <p className="text-xs text-muted-foreground">{m.preview}</p>
+                    </div>
+                    {m.unread && <Badge className="bg-red-500">!</Badge>}
                   </div>
-                  <Badge className="bg-red-500">!</Badge>
-                </div>
-                <div className="flex items-center gap-3 p-3 border rounded-lg">
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback>LC</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Dr. Luis Chen</p>
-                    <p className="text-xs text-muted-foreground">Confirmación de cita</p>
-                  </div>
-                </div>
+                ))}
               </CardContent>
             </Card>
 
-            {/* Health Summary */}
+            {/* Resumen de salud (placeholder) */}
             <Card>
               <CardHeader>
                 <CardTitle>Resumen de Salud</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
                     <span>Última consulta</span>
-                    <span className="text-muted-foreground">15 Ago 2024</span>
+                    <span className="text-muted-foreground">—</span>
                   </div>
-                  <div className="flex justify-between text-sm">
+                  <div className="flex justify-between">
                     <span>Próximo chequeo</span>
-                    <span className="text-muted-foreground">10 Sep 2024</span>
+                    <span className="text-muted-foreground">—</span>
                   </div>
-                  <div className="flex justify-between text-sm">
+                  <div className="flex justify-between">
                     <span>Medicamentos activos</span>
-                    <span className="text-muted-foreground">3</span>
+                    <span className="text-muted-foreground">—</span>
                   </div>
                 </div>
-                <Button 
-                  variant="outline" 
-                  className="w-full"
-                  onClick={() => onNavigate('history')}
-                >
+                <Button variant="outline" className="w-full" onClick={() => onNavigate("history")}>
                   Ver Historial Completo
                 </Button>
               </CardContent>
             </Card>
 
-            {/* Emergency Contact */}
+            {/* Emergencias */}
             <Card className="border-red-200 bg-red-50">
               <CardHeader>
                 <CardTitle className="text-red-700">Emergencias</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-red-600 mb-3">
-                  ¿Necesitas atención médica urgente?
-                </p>
+                <p className="text-sm text-red-600 mb-3">¿Necesitas atención médica urgente?</p>
                 <Button variant="destructive" className="w-full">
                   Llamar Emergencias
                 </Button>
@@ -408,4 +533,4 @@ export function PatientDashboard({
       </div>
     </div>
   );
- } 
+}
