@@ -4,6 +4,7 @@ import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-
 import { User } from "./types/user";
 import { getMe } from "./services/users";
 import { AuthProvider } from "./contexts/AuthContext";
+import { LandingPage } from "./components/LandingPage";
 import { WelcomeLogin } from "./components/WelcomeLogin";
 import { ForgotPassword } from "./components/ForgotPassword";
 import { PatientDashboard } from "./components/PatientDashboard";
@@ -80,8 +81,8 @@ export default function App() {
           role === "DOCTOR" ? "doctor" : role === "ADMIN" ? "admin" : "patient";
         setCurrentUser(ui);
 
-        // Solo redirigir si estamos en la página de bienvenida
-        if (location.pathname === "/") {
+        // Solo redirigir si estamos en la página de login o landing
+        if (location.pathname === "/" || location.pathname === "/login") {
           navigate(getHomeByRole(ui), { replace: true });
         }
       } catch {
@@ -106,8 +107,11 @@ export default function App() {
     <AuthProvider currentUser={currentUser}>
       <div className="min-h-screen bg-background">
         <Routes>
+          {/* Ruta principal - Landing Page */}
+          <Route path="/" element={<LandingPage />} />
+
           {/* Ruta pública - Login/Welcome */}
-          <Route path="/" element={<WelcomeLogin onLogin={handleLogin} />} />
+          <Route path="/login" element={<WelcomeLogin onLogin={handleLogin} />} />
 
           {/* Ruta pública - Recuperar contraseña */}
           <Route path="/forgot-password" element={<ForgotPassword />} />

@@ -56,7 +56,7 @@ export function ForgotPassword() {
       });
 
       // Redirigir al login
-      navigate('/');
+      navigate('/login');
     } catch (err: any) {
       setLoading(false);
 
@@ -83,7 +83,7 @@ export function ForgotPassword() {
         {/* Botón volver */}
         <Button
           variant="ghost"
-          onClick={() => navigate('/')}
+          onClick={() => navigate('/login')}
           className="mb-4"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
