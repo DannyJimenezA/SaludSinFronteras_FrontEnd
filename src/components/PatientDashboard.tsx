@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -58,17 +59,16 @@ type SlotVM = {
 
 /* ---------------- Props ---------------- */
 interface PatientDashboardProps {
-  onNavigate: (screen: string) => void;
   patientId: number;
   patientName?: string;
 }
 
 /* ---------------- Componente ---------------- */
 export function PatientDashboard({
-  onNavigate,
   patientId,
   patientName = "Paciente",
 }: PatientDashboardProps) {
+  const navigate = useNavigate();
   /* Panel del paciente (3 widgets) */
   const { data, isLoading, error, refetch, isFetching } = usePatientDashboard(patientId);
 
@@ -123,7 +123,7 @@ export function PatientDashboard({
       await createAppt.mutateAsync({
         doctorId: selectedDoctorId,
         slotId,
-        modality: "video", // el hook ya mapea a "online"
+        modality: "online", // videollamada online
       });
 
       await Swal.fire({
@@ -186,7 +186,7 @@ export function PatientDashboard({
                 3
               </Badge>
             </Button>
-            <Button variant="outline" onClick={() => onNavigate("settings")}>
+            <Button variant="outline" onClick={() => navigate("/settings")}>
               Configuración
             </Button>
           </div>
@@ -296,25 +296,25 @@ export function PatientDashboard({
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <Button
                     className="h-auto flex-col gap-2 p-4"
-                    onClick={() => onNavigate("search-doctors")}
+                    onClick={() => navigate("/search-doctors")}
                   >
                     <Search className="h-6 w-6" />
                     Buscar Médicos
                   </Button>
                   <Button
                     className="h-auto flex-col gap-2 p-4"
-                    onClick={() => onNavigate("appointments")}
+                    onClick={() => navigate("/appointments")}
                   >
                     <Calendar className="h-6 w-6" />
                     Agendar Cita
                   </Button>
-                  <Button className="h-auto flex-col gap-2 p-4" onClick={() => onNavigate("history")}>
+                  <Button className="h-auto flex-col gap-2 p-4" onClick={() => navigate("/history")}>
                     <FileText className="h-6 w-6" />
                     Mi Historial
                   </Button>
                   <Button
                     className="h-auto flex-col gap-2 p-4"
-                    onClick={() => onNavigate("video-call")}
+                    onClick={() => navigate("/video-call")}
                   >
                     <Video className="h-6 w-6" />
                     Videollamada
@@ -367,7 +367,7 @@ export function PatientDashboard({
                         {appointment.type}
                       </Badge>
                       {appointment.type === "videollamada" && (
-                        <Button className="mt-2" size="sm" onClick={() => onNavigate("video-call")}>
+                        <Button className="mt-2" size="sm" onClick={() => navigate("/video-call")}>
                           Unirse
                         </Button>
                       )}
@@ -375,7 +375,7 @@ export function PatientDashboard({
                   </div>
                 ))}
 
-                <Button variant="outline" className="w-full" onClick={() => onNavigate("appointments")}>
+                <Button variant="outline" className="w-full" onClick={() => navigate("/appointments")}>
                   Ver Todas las Citas
                 </Button>
               </CardContent>
@@ -441,7 +441,7 @@ export function PatientDashboard({
                         disabled={!doctor.available}
                         onClick={() => {
                           setSelectedDoctorId(Number(doctor.id));
-                          onNavigate("appointments"); // o quédate en el dashboard si prefieres
+                          navigate("/appointments"); // o quédate en el dashboard si prefieres
                         }}
                       >
                         Agendar
@@ -510,7 +510,7 @@ export function PatientDashboard({
                     <span className="text-muted-foreground">—</span>
                   </div>
                 </div>
-                <Button variant="outline" className="w-full" onClick={() => onNavigate("history")}>
+                <Button variant="outline" className="w-full" onClick={() => navigate("/history")}>
                   Ver Historial Completo
                 </Button>
               </CardContent>

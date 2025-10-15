@@ -51,7 +51,7 @@ function mapUserFromApi(u: any): User {
 
 /** -------- Perfil propio -------- */
 export async function getMe(): Promise<User> {
-  const { data } = await api.get(USERS_ME_PATH);
+  const { data } = await api.get<any>(USERS_ME_PATH);
   if (!data) throw new Error("Respuesta vacía de /users/me");
   return mapUserFromApi(data);
 }
@@ -62,7 +62,7 @@ export async function updateMe(payload: { fullName?: string; phone?: string }): 
   if (payload.fullName !== undefined) dto.FullName = payload.fullName;
   if (payload.phone !== undefined) dto.Phone = payload.phone;
 
-  const { data } = await api.patch(USERS_ME_PATH, dto);
+  const { data } = await api.patch<any>(USERS_ME_PATH, dto);
   if (!data) throw new Error("Respuesta vacía de PATCH /users/me");
   return mapUserFromApi(data);
 }

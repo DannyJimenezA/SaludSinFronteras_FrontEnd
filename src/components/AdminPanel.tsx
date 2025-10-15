@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -27,11 +28,8 @@ import {
 
 import { useAdminMetrics, useRecentUsers } from "../hooks/useAdmin";
 
-interface AdminPanelProps {
-  onNavigate: (screen: string) => void;
-}
-
-export function AdminPanel({ onNavigate }: AdminPanelProps) {
+export function AdminPanel() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("all");
 
@@ -69,7 +67,7 @@ export function AdminPanel({ onNavigate }: AdminPanelProps) {
             <p className="text-muted-foreground">Salud Sin Fronteras – Dashboard</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => onNavigate("settings")}>
+            <Button variant="outline" onClick={() => navigate("/settings")}>
               <Settings className="h-4 w-4 mr-2" />
               Configuración
             </Button>

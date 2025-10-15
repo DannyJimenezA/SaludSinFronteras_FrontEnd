@@ -63,6 +63,7 @@ export interface IdentificationType {
 }
 
 export interface UserIdentification {
+  data: UserIdentification;
   id: Id;
   userId: Id;
   identificationTypeId: Id;

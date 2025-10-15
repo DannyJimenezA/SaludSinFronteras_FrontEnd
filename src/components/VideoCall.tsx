@@ -1,17 +1,19 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { Input } from './ui/input';
-import { 
-  Video, 
-  VideoOff, 
-  Mic, 
-  MicOff, 
-  Phone, 
-  MessageSquare, 
-  Settings, 
+import { useAuth } from '../contexts/AuthContext';
+import {
+  Video,
+  VideoOff,
+  Mic,
+  MicOff,
+  Phone,
+  MessageSquare,
+  Settings,
   Languages,
   Volume2,
   VolumeX,
@@ -23,11 +25,9 @@ import {
   Globe
 } from 'lucide-react';
 
-interface VideoCallProps {
-  onNavigate: (screen: string) => void;
-}
-
-export function VideoCall({ onNavigate }: VideoCallProps) {
+export function VideoCall() {
+  const navigate = useNavigate();
+  const { getDashboardRoute } = useAuth();
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [isAudioOn, setIsAudioOn] = useState(true);
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
@@ -81,7 +81,7 @@ export function VideoCall({ onNavigate }: VideoCallProps) {
   };
 
   const endCall = () => {
-    onNavigate('patient-dashboard');
+    navigate(getDashboardRoute());
   };
 
   return (
@@ -332,11 +332,11 @@ export function VideoCall({ onNavigate }: VideoCallProps) {
                     </div>
                   </div>
                   
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="w-full"
-                    onClick={() => onNavigate('history')}
+                    onClick={() => navigate('/history')}
                   >
                     <FileText className="h-4 w-4 mr-2" />
                     Ver Historial

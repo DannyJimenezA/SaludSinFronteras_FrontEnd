@@ -6,7 +6,7 @@
  */
 import { api } from "../lib/api";
 import { useQuery, useMutation, keepPreviousData } from "@tanstack/react-query";
-import type { IdentificationType, UserIdentification } from "../types/users";
+import type { IdentificationType, UserIdentification } from "../types/user";
 import type { FileRef } from "../types/files";
 
 const R = {
@@ -56,7 +56,6 @@ export function useCreateIdentification(userId: string) {
     mutationKey: ["identifications", "create", userId],
     mutationFn: async (payload: CreateIdentificationPayload) => {
       const { data } = await api.post<UserIdentification>(R.CREATE(userId), payload);
-      // @ts-expect-error axios any
       return data?.data ?? data;
     },
   });
@@ -67,7 +66,6 @@ export function useUpdateIdentification(userId: string, id: string) {
     mutationKey: ["identifications", "update", userId, id],
     mutationFn: async (payload: Partial<CreateIdentificationPayload>) => {
       const { data } = await api.patch<UserIdentification>(R.DETAIL(userId, id), payload);
-      // @ts-expect-error axios any
       return data?.data ?? data;
     },
   });

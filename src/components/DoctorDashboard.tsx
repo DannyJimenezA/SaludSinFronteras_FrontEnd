@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -17,11 +18,8 @@ import {
 
 import { useDoctorDashboard } from "../hooks/useDoctorDashboard";
 
-interface DoctorDashboardProps {
-  onNavigate: (screen: string) => void;
-}
-
-export function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
+export function DoctorDashboard() {
+  const navigate = useNavigate();
   const {
     profile,
     appointments,
@@ -57,7 +55,7 @@ export function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
                 {messages.length}
               </Badge>
             </Button>
-            <Button variant="outline" onClick={() => onNavigate("settings")}>
+            <Button variant="outline" onClick={() => navigate("/settings")}>
               Configuración
             </Button>
           </div>
@@ -134,28 +132,28 @@ export function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <Button
                     className="h-auto flex-col gap-2 p-4"
-                    onClick={() => onNavigate("video-call")}
+                    onClick={() => navigate("/video-call")}
                   >
                     <Video className="h-6 w-6" />
                     Iniciar Consulta
                   </Button>
                   <Button
                     className="h-auto flex-col gap-2 p-4"
-                    onClick={() => onNavigate("appointments")}
+                    onClick={() => navigate("/appointments")}
                   >
                     <Calendar className="h-6 w-6" />
                     Ver Agenda
                   </Button>
                   <Button
                     className="h-auto flex-col gap-2 p-4"
-                    onClick={() => onNavigate("history")}
+                    onClick={() => navigate("/history")}
                   >
                     <FileText className="h-6 w-6" />
                     Historiales
                   </Button>
                   <Button
                     className="h-auto flex-col gap-2 p-4"
-                    onClick={() => onNavigate("prescriptions")}
+                    onClick={() => navigate("/prescriptions")}
                   >
                     <ClipboardList className="h-6 w-6" />
                     Recetas
@@ -207,11 +205,11 @@ export function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
                         {a.type}
                       </Badge>
                       <div className="flex gap-2 mt-2">
-                        <Button size="sm" variant="outline" onClick={() => onNavigate("history")}>
+                        <Button size="sm" variant="outline" onClick={() => navigate("/history")}>
                           Ver Historial
                         </Button>
                         {a.type === "videollamada" && (
-                          <Button size="sm" onClick={() => onNavigate("video-call")}>
+                          <Button size="sm" onClick={() => navigate("/video-call")}>
                             Iniciar
                           </Button>
                         )}
@@ -223,7 +221,7 @@ export function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
                 <Button
                   variant="outline"
                   className="w-full"
-                  onClick={() => onNavigate("appointments")}
+                  onClick={() => navigate("/appointments")}
                 >
                   Ver Agenda Completa
                 </Button>

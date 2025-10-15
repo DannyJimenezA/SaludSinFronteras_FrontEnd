@@ -32,6 +32,7 @@ export interface RegisterResponse {
 const AUTH_LOGIN_PATH = "/auth/login";
 const AUTH_REGISTER_PATH = "/auth/register";
 const AUTH_REFRESH_PATH = "/auth/refresh";
+const AUTH_FORGOT_PASSWORD_PATH = "/auth/forgot-password";
 
 /** ===== Utils ===== */
 function normalizeTokens(data: any): { access?: string; refresh?: string } {
@@ -151,4 +152,36 @@ export async function refreshToken(): Promise<string> {
   if (!access) throw new Error("No se recibió un token nuevo en refresh");
   setToken(access);
   return access;
+}
+
+/** ===== FORGOT PASSWORD =====
+ * Solicitar enlace de recuperación de contraseña
+ * Backend espera: { Email } (PascalCase)
+ */
+export async function requestPasswordReset(email: string): Promise<void> {
+  const payload = { Email: email };
+
+  if (import.meta.env.DEV) {
+    console.debug("[AUTH] requestPasswordReset →", { Email: email });
+  }
+
+  try {
+    await api.post(AUTH_FORGOT_PASSWORD_PATH, payload);
+  } catch (err: any) {
+    const status = err?.response?.status;
+
+    // Si el endpoint no existe (404), simular éxito para no revelar si el email existe
+    if (status === 404) {
+      console.warn("[AUTH] Endpoint /auth/forgot-password no encontrado. Simulando éxito.");
+      return;
+    }
+
+    const msg =
+      err?.response?.data?.message ??
+      err?.response?.data?.error ??
+      err?.message ??
+      "No se pudo enviar el correo de recuperación";
+
+    throw new Error(String(msg));
+  }
 }

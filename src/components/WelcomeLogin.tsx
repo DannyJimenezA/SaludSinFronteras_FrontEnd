@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
@@ -21,6 +22,7 @@ interface WelcomeLoginProps {
 type UiRole = 'patient' | 'doctor' | 'admin';
 
 export function WelcomeLogin({ onLogin }: WelcomeLoginProps) {
+  const navigate = useNavigate();
   const [selectedLanguage, setSelectedLanguage] = useState('es');
   const [userType, setUserType] = useState<'patient' | 'doctor'>('patient');
 
@@ -198,7 +200,16 @@ const handleLogin = async () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="loginPassword">Contraseña</Label>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="loginPassword">Contraseña</Label>
+                      <Button
+                        variant="link"
+                        className="text-xs text-primary p-0 h-auto"
+                        onClick={() => navigate('/forgot-password')}
+                      >
+                        ¿Olvidaste tu contraseña?
+                      </Button>
+                    </div>
                     <Input
                       id="loginPassword"
                       type="password"
