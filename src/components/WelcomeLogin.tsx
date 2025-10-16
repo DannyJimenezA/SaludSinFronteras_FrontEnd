@@ -6,7 +6,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Globe, Mail, Phone, Facebook } from 'lucide-react';
+import { Globe, Mail, Phone, Facebook, Eye, EyeOff } from 'lucide-react';
 // arriba con el resto de imports
 import Swal from 'sweetalert2';
 
@@ -29,6 +29,8 @@ export function WelcomeLogin({ onLogin }: WelcomeLoginProps) {
   // Login form
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
   // Register form
   const [rFirstName, setRFirstName] = useState('');
   const [rLastName1, setRLastName1] = useState('');
@@ -36,6 +38,8 @@ export function WelcomeLogin({ onLogin }: WelcomeLoginProps) {
   const [rEmail, setREmail] = useState('');
   const [rPassword, setRPassword] = useState('');
   const [rPassword2, setRPassword2] = useState('');
+  const [showRPassword, setShowRPassword] = useState(false);
+  const [showRPassword2, setShowRPassword2] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [regLoading, setRegLoading] = useState(false);
@@ -210,13 +214,27 @@ const handleLogin = async () => {
                         ¿Olvidaste tu contraseña?
                       </Button>
                     </div>
-                    <Input
-                      id="loginPassword"
-                      type="password"
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                    />
+                    <div className="relative">
+                      <Input
+                        id="loginPassword"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
                   </div>
 
                   {errorMsg && <p className="text-red-600 text-sm">{errorMsg}</p>}
@@ -326,23 +344,51 @@ const handleLogin = async () => {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="rPassword">Contraseña</Label>
-                      <Input
-                        id="rPassword"
-                        type="password"
-                        placeholder="••••••••"
-                        value={rPassword}
-                        onChange={(e) => setRPassword(e.target.value)}
-                      />
+                      <div className="relative">
+                        <Input
+                          id="rPassword"
+                          type={showRPassword ? "text" : "password"}
+                          placeholder="••••••••"
+                          value={rPassword}
+                          onChange={(e) => setRPassword(e.target.value)}
+                          className="pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowRPassword(!showRPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                        >
+                          {showRPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="rPassword2">Confirmar Contraseña</Label>
-                      <Input
-                        id="rPassword2"
-                        type="password"
-                        placeholder="••••••••"
-                        value={rPassword2}
-                        onChange={(e) => setRPassword2(e.target.value)}
-                      />
+                      <div className="relative">
+                        <Input
+                          id="rPassword2"
+                          type={showRPassword2 ? "text" : "password"}
+                          placeholder="••••••••"
+                          value={rPassword2}
+                          onChange={(e) => setRPassword2(e.target.value)}
+                          className="pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowRPassword2(!showRPassword2)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                        >
+                          {showRPassword2 ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
 

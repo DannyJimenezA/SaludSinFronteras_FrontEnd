@@ -7,25 +7,40 @@ export interface LoginPayload {
   password: string;
 }
 
-export type LoginResponse =
-  | { access_token: string; refresh_token?: string }
-  | { accessToken: string; refreshToken?: string }
-  | { token: string };
-
-export interface RegisterPatientPayload {
-  email: string;
-  password: string;
-  fullName: string;
+export interface LoginResponse {
+  access_token: string;
+  refresh_token: string;
 }
-export type RegisterDoctorPayload = RegisterPatientPayload;
+
+export interface RegisterPayload {
+  // Campos requeridos
+  FirstName: string;
+  LastName1: string;
+  Email: string;
+  Password: string;
+  PasswordConfirm: string;
+
+  // Campos opcionales
+  LastName2?: string;
+  Phone?: string;
+  IdentificationTypeId?: number;
+  Identification?: string;
+  GenderId?: number;
+  DateOfBirth?: string; // formato YYYY-MM-DD
+  NativeLanguageId?: number;
+  NationalityId?: number;
+  ResidenceCountryId?: number;
+  Role?: "ADMIN" | "DOCTOR" | "PATIENT";
+}
 
 export interface RegisterResponse {
-  id?: string | number;
-  access_token?: string;
-  refresh_token?: string;
-  accessToken?: string;
-  refreshToken?: string;
-  token?: string;
+  message: string;
+  email: string;
+}
+
+export interface ResetPasswordPayload {
+  token: string;
+  newPassword: string;
 }
 
 /** ===== Constantes ===== */
@@ -33,25 +48,12 @@ const AUTH_LOGIN_PATH = "/auth/login";
 const AUTH_REGISTER_PATH = "/auth/register";
 const AUTH_REFRESH_PATH = "/auth/refresh";
 const AUTH_FORGOT_PASSWORD_PATH = "/auth/forgot-password";
-
-/** ===== Utils ===== */
-function normalizeTokens(data: any): { access?: string; refresh?: string } {
-  const access =
-    data?.access_token ??
-    data?.accessToken ??
-    data?.token ??
-    null;
-
-  const refresh =
-    data?.refresh_token ??
-    data?.refreshToken ??
-    null;
-
-  return { access: access ?? undefined, refresh: refresh ?? undefined };
-}
+const AUTH_VERIFY_EMAIL_PATH = "/auth/verify-email";
+const AUTH_RESET_PASSWORD_PATH = "/auth/reset-password";
 
 /** ===== LOGIN =====
- * Backend espera PascalCase: { Email, Password }
+ * Backend espera: { Email, Password }
+ * Respuesta: { access_token, refresh_token }
  */
 export async function login({ email, password }: LoginPayload): Promise<string> {
   const payload = { Email: email, Password: password };
@@ -62,22 +64,41 @@ export async function login({ email, password }: LoginPayload): Promise<string> 
 
   try {
     const { data } = await api.post<LoginResponse>(AUTH_LOGIN_PATH, payload);
-    const { access } = normalizeTokens(data);
-    if (!access) throw new Error("No se recibió token de acceso");
-    setToken(access);
-    return access;
+
+    if (!data.access_token) {
+      throw new Error("No se recibió token de acceso");
+    }
+
+    // Guardar ambos tokens
+    setToken(data.access_token);
+    if (data.refresh_token) {
+      localStorage.setItem("refresh_token", data.refresh_token);
+    }
+
+    return data.access_token;
   } catch (err: any) {
     const status = err?.response?.status;
+
     if (status === 404) {
       throw new Error(
-        "Endpoint no encontrado (404). Revisa VITE_API_URL / VITE_API_PREFIX y que el backend exponga /auth/login."
+        "Endpoint no encontrado (404). Verifica que el backend exponga /auth/login."
       );
     }
+
+    if (status === 401) {
+      const msg = err?.response?.data?.message;
+      if (msg?.includes("no activada") || msg?.includes("not activated")) {
+        throw new Error("Cuenta no activada. Por favor verifica tu correo electrónico.");
+      }
+      throw new Error("Credenciales inválidas");
+    }
+
     const msg =
       err?.response?.data?.message ??
       err?.response?.data?.error ??
       err?.message ??
       "No se pudo iniciar sesión";
+
     throw new Error(String(msg));
   }
 }
@@ -85,78 +106,132 @@ export async function login({ email, password }: LoginPayload): Promise<string> 
 /** ===== LOGOUT ===== */
 export function logout(): void {
   clearToken();
+  localStorage.removeItem("refresh_token");
 }
 
-/** ===== REGISTER paciente =====
- * Backend espera: { Email, Password, FullName } (PascalCase)
+/** ===== REGISTER =====
+ * Backend espera: RegisterPayload con todos los campos en PascalCase
+ * Respuesta: { message, email }
+ * NO devuelve tokens, el usuario debe activar su cuenta primero
  */
-export async function registerPatient(
-  payload: RegisterPatientPayload
-): Promise<RegisterResponse> {
-  const dto = {
-    Email: payload.email,
-    Password: payload.password,
-    FullName: payload.fullName,
-  };
-
+export async function register(payload: RegisterPayload): Promise<RegisterResponse> {
   if (import.meta.env.DEV) {
-    console.debug("[AUTH] registerPatient →", {
-      Email: payload.email,
+    console.debug("[AUTH] register →", {
+      ...payload,
       Password: "***",
-      FullName: payload.fullName,
+      PasswordConfirm: "***",
     });
   }
 
-  const { data } = await api.post<RegisterResponse>(AUTH_REGISTER_PATH, dto);
+  try {
+    const { data } = await api.post<RegisterResponse>(AUTH_REGISTER_PATH, payload);
+    return data;
+  } catch (err: any) {
+    const status = err?.response?.status;
 
-  const { access } = normalizeTokens(data);
-  if (access) setToken(access);
+    if (status === 400) {
+      const msg = err?.response?.data?.message;
+      // Si es un array de mensajes, unirlos
+      if (Array.isArray(msg)) {
+        throw new Error(msg.join(". "));
+      }
+      throw new Error(msg || "Datos de registro inválidos");
+    }
 
-  return data;
+    const msg =
+      err?.response?.data?.message ??
+      err?.response?.data?.error ??
+      err?.message ??
+      "No se pudo registrar el usuario";
+
+    throw new Error(String(msg));
+  }
 }
 
-/** ===== REGISTER médico =====
- * Igual que paciente, pero enviando Role: "DOCTOR"
+/** ===== HELPER: Registrar Paciente =====
+ * Convierte formato simple a RegisterPayload completo
  */
-export async function registerDoctor(
-  payload: RegisterDoctorPayload
-): Promise<RegisterResponse> {
-  const dto = {
-    Email: payload.email,
-    Password: payload.password,
-    FullName: payload.fullName,
-    Role: "DOCTOR", // <- clave para crear la cuenta como médico
-  };
+export async function registerPatient(params: {
+  firstName: string;
+  lastName1: string;
+  lastName2?: string;
+  email: string;
+  password: string;
+  phone?: string;
+}): Promise<RegisterResponse> {
+  return register({
+    FirstName: params.firstName,
+    LastName1: params.lastName1,
+    LastName2: params.lastName2,
+    Email: params.email,
+    Password: params.password,
+    PasswordConfirm: params.password,
+    Phone: params.phone,
+    Role: "PATIENT",
+  });
+}
 
+/** ===== HELPER: Registrar Doctor =====
+ * Convierte formato simple a RegisterPayload completo con Role: DOCTOR
+ */
+export async function registerDoctor(params: {
+  firstName: string;
+  lastName1: string;
+  lastName2?: string;
+  email: string;
+  password: string;
+  phone?: string;
+}): Promise<RegisterResponse> {
+  return register({
+    FirstName: params.firstName,
+    LastName1: params.lastName1,
+    LastName2: params.lastName2,
+    Email: params.email,
+    Password: params.password,
+    PasswordConfirm: params.password,
+    Phone: params.phone,
+    Role: "DOCTOR",
+  });
+}
+
+/** ===== VERIFY EMAIL =====
+ * Backend espera: POST /auth/verify-email con body { token }
+ * Respuesta: { message }
+ */
+export async function verifyEmail(token: string): Promise<void> {
   if (import.meta.env.DEV) {
-    console.debug("[AUTH] registerDoctor →", {
-      Email: payload.email,
-      Password: "***",
-      FullName: payload.fullName,
-      Role: "DOCTOR",
-    });
+    console.debug("[AUTH] verifyEmail →", { token: token.substring(0, 10) + "..." });
   }
 
-  const { data } = await api.post<RegisterResponse>(AUTH_REGISTER_PATH, dto);
+  try {
+    // Según la API, enviamos el token en el body
+    await api.post(AUTH_VERIFY_EMAIL_PATH, { token });
+  } catch (err: any) {
+    const status = err?.response?.status;
 
-  const { access } = normalizeTokens(data);
-  if (access) setToken(access);
+    if (status === 404) {
+      throw new Error(
+        "Endpoint no encontrado (404). Verifica que el backend exponga /auth/verify-email."
+      );
+    }
 
-  return data;
-}
+    if (status === 400) {
+      throw new Error("Token de verificación inválido o expirado");
+    }
 
-/** ===== REFRESH opcional ===== */
-export async function refreshToken(): Promise<string> {
-  const { data } = await api.post<LoginResponse>(AUTH_REFRESH_PATH, {});
-  const { access } = normalizeTokens(data);
-  if (!access) throw new Error("No se recibió un token nuevo en refresh");
-  setToken(access);
-  return access;
+    const msg =
+      err?.response?.data?.message ??
+      err?.response?.data?.error ??
+      err?.message ??
+      "No se pudo verificar el email";
+
+    throw new Error(String(msg));
+  }
 }
 
 /** ===== FORGOT PASSWORD =====
- * Solicitar enlace de recuperación de contraseña
- * Backend espera: { Email } (PascalCase)
+ * Backend espera: { Email }
+ * Respuesta: { message } (siempre exitoso por seguridad)
  */
 export async function requestPasswordReset(email: string): Promise<void> {
   const payload = { Email: email };
@@ -176,12 +251,79 @@ export async function requestPasswordReset(email: string): Promise<void> {
       return;
     }
 
+    // Por seguridad, no lanzar error real, simular éxito
+    console.warn("[AUTH] Error en forgot-password, pero simulando éxito por seguridad:", err);
+  }
+}
+
+/** ===== RESET PASSWORD =====
+ * Backend espera: { token, newPassword }
+ * Respuesta: { message }
+ */
+export async function resetPassword({ token, newPassword }: ResetPasswordPayload): Promise<void> {
+  if (import.meta.env.DEV) {
+    console.debug("[AUTH] resetPassword →", {
+      token: token.substring(0, 10) + "...",
+      newPassword: "***"
+    });
+  }
+
+  try {
+    await api.post(AUTH_RESET_PASSWORD_PATH, { token, newPassword });
+  } catch (err: any) {
+    const status = err?.response?.status;
+
+    if (status === 404) {
+      throw new Error(
+        "Endpoint no encontrado (404). Verifica que el backend exponga /auth/reset-password."
+      );
+    }
+
+    if (status === 400) {
+      throw new Error("Token de recuperación inválido o expirado");
+    }
+
     const msg =
       err?.response?.data?.message ??
       err?.response?.data?.error ??
       err?.message ??
-      "No se pudo enviar el correo de recuperación";
+      "No se pudo restablecer la contraseña";
 
     throw new Error(String(msg));
+  }
+}
+
+/** ===== REFRESH TOKEN =====
+ * Backend espera: { refresh_token }
+ * Respuesta: { access_token, refresh_token }
+ */
+export async function refreshToken(): Promise<string> {
+  const refreshToken = localStorage.getItem("refresh_token");
+
+  if (!refreshToken) {
+    throw new Error("No hay refresh token disponible");
+  }
+
+  try {
+    const { data } = await api.post<LoginResponse>(AUTH_REFRESH_PATH, {
+      refresh_token: refreshToken,
+    });
+
+    if (!data.access_token) {
+      throw new Error("No se recibió un token nuevo en refresh");
+    }
+
+    setToken(data.access_token);
+    if (data.refresh_token) {
+      localStorage.setItem("refresh_token", data.refresh_token);
+    }
+
+    return data.access_token;
+  } catch (err: any) {
+    // Si el refresh falla, limpiar tokens y forzar re-login
+    clearToken();
+    localStorage.removeItem("refresh_token");
+
+    throw new Error("Sesión expirada. Por favor inicia sesión nuevamente.");
   }
 }
