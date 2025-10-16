@@ -112,13 +112,23 @@ const handleLogin = async () => {
 
   setRegLoading(true);
   try {
-    const fullName = `${rFirstName} ${rLastName1}${rLastName2 ? ' ' + rLastName2 : ''}`.trim();
-
-    // Registrar según “Tipo de Usuario”
+    // Registrar según "Tipo de Usuario"
     if (userType === 'doctor') {
-      await registerDoctor({ email: rEmail.trim(), password: rPassword, fullName });
+      await registerDoctor({
+        firstName: rFirstName.trim(),
+        lastName1: rLastName1.trim(),
+        lastName2: rLastName2 ? rLastName2.trim() : undefined,
+        email: rEmail.trim(),
+        password: rPassword
+      });
     } else {
-      await registerPatient({ email: rEmail.trim(), password: rPassword, fullName });
+      await registerPatient({
+        firstName: rFirstName.trim(),
+        lastName1: rLastName1.trim(),
+        lastName2: rLastName2 ? rLastName2.trim() : undefined,
+        email: rEmail.trim(),
+        password: rPassword
+      });
     }
 
     // Auto-login y redirección por rol
