@@ -7,6 +7,8 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { LandingPage } from "./components/LandingPage";
 import { WelcomeLogin } from "./components/WelcomeLogin";
 import { ForgotPassword } from "./components/ForgotPassword";
+import { VerifyEmail } from "./components/VerifyEmail";
+import { ResetPassword } from "./components/ResetPassword";
 import { PatientDashboard } from "./components/PatientDashboard";
 import { DoctorDashboard } from "./components/DoctorDashboard";
 import { AdminPanel } from "./components/AdminPanel";
@@ -115,6 +117,12 @@ export default function App() {
 
           {/* Ruta pública - Recuperar contraseña */}
           <Route path="/forgot-password" element={<ForgotPassword />} />
+
+          {/* Ruta pública - Restablecer contraseña */}
+          <Route path="/reset-password" element={<ResetPassword />} />
+
+          {/* Ruta pública - Verificar email */}
+          <Route path="/verify-email" element={<VerifyEmail />} />
 
         {/* Rutas protegidas - Paciente */}
         <Route
