@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -8,15 +9,16 @@ import { Switch } from './ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { 
-  User, 
-  Globe, 
-  Shield, 
-  Bell, 
-  CreditCard, 
-  Smartphone, 
-  Lock, 
-  Eye, 
+import { useAuth } from '../contexts/AuthContext';
+import {
+  User,
+  Globe,
+  Shield,
+  Bell,
+  CreditCard,
+  Smartphone,
+  Lock,
+  Eye,
   EyeOff,
   Camera,
   Save,
@@ -27,11 +29,12 @@ import {
 } from 'lucide-react';
 
 interface SettingsProps {
-  onNavigate: (screen: string) => void;
   onLogout: () => void;
 }
 
-export function Settings({ onNavigate, onLogout }: SettingsProps) {
+export function Settings({ onLogout }: SettingsProps) {
+  const navigate = useNavigate();
+  const { getDashboardRoute } = useAuth();
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
@@ -98,7 +101,7 @@ export function Settings({ onNavigate, onLogout }: SettingsProps) {
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
-          <Button variant="outline" onClick={() => onNavigate('patient-dashboard')}>
+          <Button variant="outline" onClick={() => navigate(getDashboardRoute())}>
             ← Volver
           </Button>
           <h1 className="text-2xl font-bold text-primary">Configuración</h1>
@@ -519,10 +522,10 @@ export function Settings({ onNavigate, onLogout }: SettingsProps) {
                 <CardTitle>Historial de Facturación</CardTitle>
               </CardHeader>
               <CardContent>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="w-full"
-                  onClick={() => onNavigate('payments')}
+                  onClick={() => navigate('/payments')}
                 >
                   Ver Historial Completo
                 </Button>

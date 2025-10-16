@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -6,13 +7,14 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { 
-  CreditCard, 
-  Download, 
-  Calendar, 
-  DollarSign, 
-  Check, 
-  Star, 
+import { useAuth } from '../contexts/AuthContext';
+import {
+  CreditCard,
+  Download,
+  Calendar,
+  DollarSign,
+  Check,
+  Star,
   Zap,
   Shield,
   Users,
@@ -23,11 +25,9 @@ import {
   Gift
 } from 'lucide-react';
 
-interface PaymentsBillingProps {
-  onNavigate: (screen: string) => void;
-}
-
-export function PaymentsBilling({ onNavigate }: PaymentsBillingProps) {
+export function PaymentsBilling() {
+  const navigate = useNavigate();
+  const { getDashboardRoute } = useAuth();
   const [selectedPlan, setSelectedPlan] = useState('basic');
 
   const plans = [
@@ -166,7 +166,7 @@ export function PaymentsBilling({ onNavigate }: PaymentsBillingProps) {
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
-          <Button variant="outline" onClick={() => onNavigate('patient-dashboard')}>
+          <Button variant="outline" onClick={() => navigate(getDashboardRoute())}>
             ← Volver
           </Button>
           <h1 className="text-2xl font-bold text-primary">Pagos y Facturación</h1>

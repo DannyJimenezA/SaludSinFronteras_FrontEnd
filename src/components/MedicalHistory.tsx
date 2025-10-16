@@ -1,18 +1,20 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { Input } from './ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { 
-  FileText, 
-  Download, 
-  Search, 
-  Calendar, 
-  Clock, 
-  Pill, 
-  Activity, 
+import { useAuth } from '../contexts/AuthContext';
+import {
+  FileText,
+  Download,
+  Search,
+  Calendar,
+  Clock,
+  Pill,
+  Activity,
   Heart,
   Eye,
   Filter,
@@ -22,11 +24,9 @@ import {
   AlertTriangle
 } from 'lucide-react';
 
-interface MedicalHistoryProps {
-  onNavigate: (screen: string) => void;
-}
-
-export function MedicalHistory({ onNavigate }: MedicalHistoryProps) {
+export function MedicalHistory() {
+  const navigate = useNavigate();
+  const { getDashboardRoute } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
 
@@ -189,7 +189,7 @@ export function MedicalHistory({ onNavigate }: MedicalHistoryProps) {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <div className="flex items-center gap-4">
-              <Button variant="outline" onClick={() => onNavigate('patient-dashboard')}>
+              <Button variant="outline" onClick={() => navigate(getDashboardRoute())}>
                 ← Volver
               </Button>
               <h1 className="text-2xl font-bold text-primary">Historial Médico</h1>

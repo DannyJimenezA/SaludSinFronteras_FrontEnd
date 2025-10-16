@@ -1,89 +1,39 @@
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Button } from './ui/button';
-import { Badge } from './ui/badge';
-import { Avatar, AvatarFallback } from './ui/avatar';
-import { 
-  Calendar, 
-  Clock, 
-  Users, 
-  FileText, 
-  Video, 
-  Bell, 
+import { useNavigate } from "react-router-dom";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Button } from "./ui/button";
+import { Badge } from "./ui/badge";
+import { Avatar, AvatarFallback } from "./ui/avatar";
+import {
+  Calendar,
+  Clock,
+  Users,
+  FileText,
+  Video,
+  Bell,
   TrendingUp,
   MessageSquare,
   Stethoscope,
-  ClipboardList
-} from 'lucide-react';
+  ClipboardList,
+} from "lucide-react";
 
-interface DoctorDashboardProps {
-  onNavigate: (screen: string) => void;
-}
+import { useDoctorDashboard } from "../hooks/useDoctorDashboard";
 
-export function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
-  const todayAppointments = [
-    {
-      id: 1,
-      patient: 'Juan Pérez',
-      time: '09:00',
-      type: 'videollamada',
-      condition: 'Consulta de seguimiento',
-      urgent: false
-    },
-    {
-      id: 2,
-      patient: 'María López',
-      time: '10:30',
-      type: 'presencial',
-      condition: 'Primera consulta',
-      urgent: true
-    },
-    {
-      id: 3,
-      patient: 'Carlos García',
-      time: '14:00',
-      type: 'videollamada',
-      condition: 'Revisión de resultados',
-      urgent: false
-    }
-  ];
+export function DoctorDashboard() {
+  const navigate = useNavigate();
+  const {
+    profile,
+    appointments,
+    conversations,
+    doctorName,
+    doctorSpecialty,
+    todaysAppointments,
+    stat_today,
+    stat_online,
+    messages,
+  } = useDoctorDashboard();
 
-  const pendingTasks = [
-    {
-      id: 1,
-      task: 'Revisar análisis de sangre - Juan Pérez',
-      priority: 'alta',
-      dueDate: 'Hoy'
-    },
-    {
-      id: 2,
-      task: 'Completar receta médica - María López',
-      priority: 'media',
-      dueDate: 'Mañana'
-    },
-    {
-      id: 3,
-      task: 'Llamar para seguimiento - Carlos García',
-      priority: 'baja',
-      dueDate: '2 días'
-    }
-  ];
-
-  const recentMessages = [
-    {
-      id: 1,
-      from: 'Juan Pérez',
-      message: 'Doctor, tengo una pregunta sobre mi medicación',
-      time: '10 min',
-      unread: true
-    },
-    {
-      id: 2,
-      from: 'María López',
-      message: 'Gracias por la consulta de hoy',
-      time: '1h',
-      unread: false
-    }
-  ];
+  const loading =
+    profile.isLoading || appointments.isLoading || conversations.isLoading;
 
   return (
     <div className="min-h-screen bg-background p-4">
@@ -91,17 +41,21 @@ export function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-primary">Dr. Ana García</h1>
-            <p className="text-muted-foreground">Cardiología - Hospital Central</p>
+            <h1 className="text-3xl font-bold text-primary">
+              {loading ? "Cargando…" : doctorName}
+            </h1>
+            <p className="text-muted-foreground">
+              {loading ? "—" : doctorSpecialty}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="icon" className="relative">
               <Bell className="h-4 w-4" />
               <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">
-                5
+                {messages.length}
               </Badge>
             </Button>
-            <Button variant="outline" onClick={() => onNavigate('settings')}>
+            <Button variant="outline" onClick={() => navigate("/settings")}>
               Configuración
             </Button>
           </div>
@@ -114,40 +68,48 @@ export function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Citas Hoy</p>
-                  <p className="text-2xl font-bold">8</p>
+                  <p className="text-2xl font-bold">
+                    {loading ? "…" : stat_today}
+                  </p>
                 </div>
                 <Calendar className="h-8 w-8 text-primary" />
               </div>
             </CardContent>
           </Card>
+
+          {/* A falta de endpoint real para pacientes activos, mantenemos placeholder amigable */}
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Pacientes Activos</p>
-                  <p className="text-2xl font-bold">142</p>
+                  <p className="text-2xl font-bold">—</p>
                 </div>
                 <Users className="h-8 w-8 text-primary" />
               </div>
             </CardContent>
           </Card>
+
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Consultas Online</p>
-                  <p className="text-2xl font-bold">24</p>
+                  <p className="text-sm text-muted-foreground">Consultas Online (hoy)</p>
+                  <p className="text-2xl font-bold">
+                    {loading ? "…" : stat_online}
+                  </p>
                 </div>
                 <Video className="h-8 w-8 text-primary" />
               </div>
             </CardContent>
           </Card>
+
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Satisfacción</p>
-                  <p className="text-2xl font-bold">4.9</p>
+                  <p className="text-2xl font-bold">—</p>
                 </div>
                 <TrendingUp className="h-8 w-8 text-primary" />
               </div>
@@ -168,30 +130,30 @@ export function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <Button 
+                  <Button
                     className="h-auto flex-col gap-2 p-4"
-                    onClick={() => onNavigate('video-call')}
+                    onClick={() => navigate("/video-call")}
                   >
                     <Video className="h-6 w-6" />
                     Iniciar Consulta
                   </Button>
-                  <Button 
+                  <Button
                     className="h-auto flex-col gap-2 p-4"
-                    onClick={() => onNavigate('appointments')}
+                    onClick={() => navigate("/appointments")}
                   >
                     <Calendar className="h-6 w-6" />
                     Ver Agenda
                   </Button>
-                  <Button 
+                  <Button
                     className="h-auto flex-col gap-2 p-4"
-                    onClick={() => onNavigate('history')}
+                    onClick={() => navigate("/history")}
                   >
                     <FileText className="h-6 w-6" />
                     Historiales
                   </Button>
-                  <Button 
+                  <Button
                     className="h-auto flex-col gap-2 p-4"
-                    onClick={() => onNavigate('prescriptions')}
+                    onClick={() => navigate("/prescriptions")}
                   >
                     <ClipboardList className="h-6 w-6" />
                     Recetas
@@ -209,9 +171,16 @@ export function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {todayAppointments.map((appointment) => (
-                  <div 
-                    key={appointment.id}
+                {loading && <p className="text-sm text-muted-foreground">Cargando…</p>}
+                {!loading && todaysAppointments.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    No tienes citas para hoy.
+                  </p>
+                )}
+
+                {todaysAppointments.map((a) => (
+                  <div
+                    key={String(a.id)}
                     className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
                   >
                     <div className="flex items-center gap-4">
@@ -219,33 +188,28 @@ export function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
                         <Clock className="h-6 w-6 text-primary" />
                       </div>
                       <div>
-                        <h4 className="font-medium">{appointment.patient}</h4>
-                        <p className="text-sm text-muted-foreground">{appointment.condition}</p>
+                        <h4 className="font-medium">{a.patient || "Paciente"}</h4>
+                        <p className="text-sm text-muted-foreground">{a.condition}</p>
                         <div className="flex items-center gap-2 mt-1">
-                          <span className="text-xs font-medium">{appointment.time}</span>
-                          {appointment.urgent && (
-                            <Badge variant="destructive" className="text-xs">Urgente</Badge>
+                          <span className="text-xs font-medium">{a.time}</span>
+                          {a.urgent && (
+                            <Badge variant="destructive" className="text-xs">
+                              Urgente
+                            </Badge>
                           )}
                         </div>
                       </div>
                     </div>
                     <div className="text-right">
-                      <Badge variant={appointment.type === 'videollamada' ? 'default' : 'secondary'}>
-                        {appointment.type}
+                      <Badge variant={a.type === "videollamada" ? "default" : "secondary"}>
+                        {a.type}
                       </Badge>
                       <div className="flex gap-2 mt-2">
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => onNavigate('history')}
-                        >
+                        <Button size="sm" variant="outline" onClick={() => navigate("/history")}>
                           Ver Historial
                         </Button>
-                        {appointment.type === 'videollamada' && (
-                          <Button 
-                            size="sm"
-                            onClick={() => onNavigate('video-call')}
-                          >
+                        {a.type === "videollamada" && (
+                          <Button size="sm" onClick={() => navigate("/video-call")}>
                             Iniciar
                           </Button>
                         )}
@@ -253,44 +217,14 @@ export function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
                     </div>
                   </div>
                 ))}
-                <Button 
-                  variant="outline" 
+
+                <Button
+                  variant="outline"
                   className="w-full"
-                  onClick={() => onNavigate('appointments')}
+                  onClick={() => navigate("/appointments")}
                 >
                   Ver Agenda Completa
                 </Button>
-              </CardContent>
-            </Card>
-
-            {/* Pending Tasks */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ClipboardList className="h-5 w-5" />
-                  Tareas Pendientes
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {pendingTasks.map((task) => (
-                  <div 
-                    key={task.id}
-                    className="flex items-center justify-between p-3 border rounded-lg"
-                  >
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{task.task}</p>
-                      <p className="text-xs text-muted-foreground">Vence: {task.dueDate}</p>
-                    </div>
-                    <Badge 
-                      variant={
-                        task.priority === 'alta' ? 'destructive' : 
-                        task.priority === 'media' ? 'default' : 'secondary'
-                      }
-                    >
-                      {task.priority}
-                    </Badge>
-                  </div>
-                ))}
               </CardContent>
             </Card>
           </div>
@@ -306,67 +240,55 @@ export function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {recentMessages.map((message) => (
-                  <div 
-                    key={message.id}
+                {loading && <p className="text-sm text-muted-foreground">Cargando…</p>}
+                {!loading && messages.length === 0 && (
+                  <p className="text-sm text-muted-foreground">Sin mensajes recientes.</p>
+                )}
+
+                {messages.map((m) => (
+                  <div
+                    key={String(m.id)}
                     className="flex items-start gap-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors"
                   >
                     <Avatar className="h-8 w-8">
-                      <AvatarFallback>{message.from.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                      <AvatarFallback>
+                        {m.from
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")
+                          .slice(0, 2)
+                          .toUpperCase()}
+                      </AvatarFallback>
                     </Avatar>
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
-                        <p className="text-sm font-medium">{message.from}</p>
-                        <span className="text-xs text-muted-foreground">{message.time}</span>
+                        <p className="text-sm font-medium">{m.from}</p>
+                        {m.time && <span className="text-xs text-muted-foreground">{m.time}</span>}
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">{message.message}</p>
-                      {message.unread && (
-                        <Badge className="mt-2 bg-blue-500">Nuevo</Badge>
-                      )}
+                      <p className="text-xs text-muted-foreground mt-1">{m.message}</p>
+                      {m.unread && <Badge className="mt-2 bg-blue-500">Nuevo</Badge>}
                     </div>
                   </div>
                 ))}
+
                 <Button variant="outline" className="w-full">
                   Ver Todos los Mensajes
                 </Button>
               </CardContent>
             </Card>
 
-            {/* Schedule Overview */}
+            {/* Resumen semanal / placeholders */}
             <Card>
               <CardHeader>
                 <CardTitle>Resumen Semanal</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Consultas esta semana</span>
-                    <span className="font-medium">24</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Videollamadas</span>
-                    <span className="font-medium">16</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Presenciales</span>
-                    <span className="font-medium">8</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Ingresos estimados</span>
-                    <span className="font-medium">€2,400</span>
-                  </div>
-                </div>
-                <Button 
-                  variant="outline" 
-                  className="w-full"
-                  onClick={() => onNavigate('payments')}
-                >
-                  Ver Finanzas
-                </Button>
+              <CardContent className="space-y-4 text-sm text-muted-foreground">
+                Conectaremos métricas semanales cuando el backend exponga agregados.
+                Por ahora se derivan de citas del día.
               </CardContent>
             </Card>
 
-            {/* Patient Status */}
+            {/* Estado de Pacientes / placeholder */}
             <Card>
               <CardHeader>
                 <CardTitle>Estado de Pacientes</CardTitle>
@@ -374,15 +296,15 @@ export function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
               <CardContent className="space-y-3">
                 <div className="flex justify-between text-sm">
                   <span>Casos críticos</span>
-                  <Badge variant="destructive">3</Badge>
+                  <Badge variant="destructive">—</Badge>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Seguimiento requerido</span>
-                  <Badge variant="default">12</Badge>
+                  <Badge variant="default">—</Badge>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Estables</span>
-                  <Badge variant="secondary">127</Badge>
+                  <Badge variant="secondary">—</Badge>
                 </div>
               </CardContent>
             </Card>
