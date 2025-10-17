@@ -187,3 +187,9 @@
 html {
   font-size: var(--font-size);
 }
+
+:root {
+  /* primary = emerald-700 aprox */
+  --primary: 160 84% 30%;
+  --primary-foreground: 0 0% 100%;
+}
