@@ -19,6 +19,8 @@ import { Settings as SettingsPage } from "./components/Settings";
 import { PaymentsBilling } from "./components/PaymentsBilling";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { NotFound } from "./components/NotFound";
+import { ManageAvailability } from "./components/doctor/ManageAvailability";
+import { BookAppointmentPage } from "./pages/BookAppointmentPage";
 
 type UserType = "patient" | "doctor" | "admin" | null;
 
@@ -137,12 +139,30 @@ export default function App() {
           }
         />
 
+        <Route
+          path="/patient/book-appointment/:doctorId"
+          element={
+            <ProtectedRoute isAllowed={currentUser === "patient"}>
+              <BookAppointmentPage />
+            </ProtectedRoute>
+          }
+        />
+
         {/* Rutas protegidas - Doctor */}
         <Route
           path="/doctor-dashboard"
           element={
             <ProtectedRoute isAllowed={currentUser === "doctor"}>
               <DoctorDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/doctor/availability"
+          element={
+            <ProtectedRoute isAllowed={currentUser === "doctor"}>
+              <ManageAvailability />
             </ProtectedRoute>
           }
         />

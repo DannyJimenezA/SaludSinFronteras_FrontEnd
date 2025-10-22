@@ -23,7 +23,6 @@ export function DoctorDashboard() {
   const {
     profile,
     appointments,
-    conversations,
     doctorName,
     doctorSpecialty,
     todaysAppointments,
@@ -33,7 +32,7 @@ export function DoctorDashboard() {
   } = useDoctorDashboard();
 
   const loading =
-    profile.isLoading || appointments.isLoading || conversations.isLoading;
+    profile.isLoading || appointments.isLoading;
 
   return (
     <div className="min-h-screen bg-background p-4">
@@ -139,10 +138,10 @@ export function DoctorDashboard() {
                   </Button>
                   <Button
                     className="h-auto flex-col gap-2 p-4"
-                    onClick={() => navigate("/appointments")}
+                    onClick={() => navigate("/doctor/availability")}
                   >
                     <Calendar className="h-6 w-6" />
-                    Ver Agenda
+                    Mi Disponibilidad
                   </Button>
                   <Button
                     className="h-auto flex-col gap-2 p-4"
@@ -221,9 +220,9 @@ export function DoctorDashboard() {
                 <Button
                   variant="outline"
                   className="w-full"
-                  onClick={() => navigate("/appointments")}
+                  onClick={() => navigate("/doctor/availability")}
                 >
-                  Ver Agenda Completa
+                  Gestionar Disponibilidad
                 </Button>
               </CardContent>
             </Card>

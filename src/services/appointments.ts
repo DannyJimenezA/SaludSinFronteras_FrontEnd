@@ -1,205 +1,218 @@
 /**
  * services/appointments.ts
- * Citas (Appointments) + Notas — rutas FAKE por ahora.
- * Tablas: Appointments, AppointmentNotes
+ * Gestión de citas médicas
  *
- * Endpoints mínimos esperados:
- *   GET   /appointments?doctorId=&patientId=&status=&from=&to=
- *   POST  /appointments                                 → crea cita (valida colisión/slot)
- *   GET   /appointments/:id
- *   PATCH /appointments/:id/status                      → { status: 'CONFIRMED' | 'CANCELLED' | 'COMPLETED' | 'RESCHEDULED' }
- *   POST  /appointments/:id/notes                       → crea nota del doctor
- *
- * Notas:
- * - 'from' y 'to' en filtros: ISO8601 UTC.
- * - Este service acepta respuesta tanto { data: [...] } como array plano.
+ * Endpoints:
+ *   POST   /appointments                    → Crear cita
+ *   GET    /appointments?patientId=X        → Listar citas por paciente
+ *   PATCH  /appointments/:id/status         → Actualizar estado de cita
+ *   POST   /appointments/:id/notes          → Crear nota médica
+ *   POST   /appointments/:id/video          → Obtener token de videollamada
  */
-/*
-import { api } from "../lib/api";
-import { useQuery, useMutation, keepPreviousData } from "@tanstack/react-query";
-import type { ApiList, ApiSuccess } from "../types/common";
-import type { Appointment, AppointmentNote } from "../types/appointments";
 
-// ⚠️ RUTAS FAKE — cámbialas cuando tengas backend real
-const R = {
-  LIST: "/appointments",
-  CREATE: "/appointments",
-  DETAIL: (id: string) => `/appointments/${id}`,
-  STATUS: (id: string) => `/appointments/${id}/status`,
-  NOTES: (id: string) => `/appointments/${id}/notes`,
-} as const;
-
-export interface AppointmentFilters {
-  doctorId?: string;
-  patientId?: string;
-  status?: string;
-  from?: string; // ISODate
-  to?: string;   // ISODate
-  page?: number;
-  perPage?: number;
-}
-
-/** Payload de creación (ajústalo si tu backend exige otros campos) 
-export interface CreateAppointmentPayload {
-  patientUserId: string;
-  doctorUserId: string;
-  scheduledAt: string; // ISODate (inicio)
-  durationMin: number;
-  modality?: string;   // 'VIDEO' | 'IN_PERSON' | 'PHONE'
-  reason?: string;
-  notes?: string;
-  // opcionalmente: slotId si tu backend lo pide para evitar colisiones
-  slotId?: string;
-}
-
-/** ————————————————————————————————————————————————
- *  Versión promesa (sin hooks)
- *  ———————————————————————————————————————————————— 
-export async function listAppointments(filters: AppointmentFilters = {}): Promise<Appointment[]> {
-  const { data } = await api.get(R.LIST, { params: filters });
-  return Array.isArray(data) ? data : (data?.data ?? []);
-}
-
-export async function getAppointment(id: string): Promise<Appointment> {
-  const { data } = await api.get(R.DETAIL(id));
-  return data?.data ?? data;
-}
-
-export async function createAppointment(payload: CreateAppointmentPayload): Promise<Appointment> {
-  const { data } = await api.post(R.CREATE, payload);
-  return data?.data ?? data;
-}
-
-export async function updateAppointmentStatus(id: string, status: string): Promise<Appointment> {
-  const { data } = await api.patch(R.STATUS(id), { status });
-  return data?.data ?? data;
-}
-
-export async function addAppointmentNote(id: string, content: string): Promise<AppointmentNote> {
-  const { data } = await api.post(R.NOTES(id), { content });
-  return data?.data ?? data;
-}
-
-/** ————————————————————————————————————————————————
- *  Hooks React Query (v5)
- *  ———————————————————————————————————————————————— 
-export function useAppointments(filters: AppointmentFilters) {
-  return useQuery({
-    queryKey: ["appointments", filters],
-    queryFn: async (): Promise<Appointment[]> => {
-      const { data } = await api.get(R.LIST, { params: filters });
-      
-      return Array.isArray(data) ? data : (data?.data ?? []);
-    },
-    placeholderData: keepPreviousData,
-  });
-}
-
-export function useAppointment(id?: string) {
-  return useQuery({
-    queryKey: ["appointments", "detail", id],
-    queryFn: async (): Promise<Appointment> => {
-      if (!id) throw new Error("id requerido");
-      const { data } = await api.get(R.DETAIL(id));
-      
-      return data?.data ?? data;
-    },
-    enabled: Boolean(id),
-  });
-}
-
-export function useCreateAppointment() {
-  return useMutation({
-    mutationKey: ["appointments", "create"],
-    mutationFn: async (payload: CreateAppointmentPayload) => {
-      const { data } = await api.post<ApiSuccess<Appointment>>(R.CREATE, payload);
-      return data.data ?? (data as any);
-    },
-  });
-}
-
-export function useUpdateAppointmentStatus(id: string) {
-  return useMutation({
-    mutationKey: ["appointments", "status", id],
-    mutationFn: async (payload: { status: string }) => {
-      const { data } = await api.patch<ApiSuccess<Appointment>>(R.STATUS(id), payload);
-      return data.data ?? (data as any);
-    },
-  });
-}
-
-export function useAddAppointmentNote(id: string) {
-  return useMutation({
-    mutationKey: ["appointments", "notes", id],
-    mutationFn: async (payload: { content: string }) => {
-      const { data } = await api.post<ApiSuccess<AppointmentNote>>(R.NOTES(id), payload);
-      return data.data ?? (data as any);
-    },
-  });
-}
-*/
-// src/services/appointments.ts
-// src/services/appointments.ts
 import { api } from "../lib/api";
 
-// ---------- API shape ----------
-export type AppointmentApi = {
+// ========== TIPOS ==========
+
+export type AppointmentStatus = "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED";
+export type ModalityApi = "online" | "onsite" | "phone";
+
+/** Cita desde la API */
+export interface AppointmentApi {
   Id: number | string;
   PatientUserId: number | string;
   DoctorUserId: number | string;
-  Status: "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED";
+  Status: AppointmentStatus;
   ScheduledAt: string;            // ISO
   DurationMin?: number | null;
-  Modality: "online" | "onsite" | "phone";
+  Modality: ModalityApi;
   SlotId?: number | string | null;
+  Reason?: string | null;
+  Notes?: string | null;
   CreatedAt: string;
   UpdatedAt: string;
-};
-
-// ---------- Hook payload ----------
-export type ModalityApi = "online" | "onsite" | "phone";
-
-export interface CreateAppointmentPayload {
-  patientUserId: number | string;
-  doctorUserId: number | string;
-  scheduledAt: string;           // ISO
-  durationMin: number;
-  modality: "VIDEO" | "IN_PERSON" | "PHONE"; // lo mapeamos a API
-  reason?: string;
-  notes?: string;
-  slotId?: number | string;
-}
-
-// Mapear modalidad del front -> backend
-function mapModality(m: CreateAppointmentPayload["modality"]): ModalityApi {
-  if (m === "VIDEO") return "online";
-  if (m === "IN_PERSON") return "onsite";
-  return "phone";
-}
-
-// ---------- LIST ----------
-export async function listAppointments(): Promise<AppointmentApi[]> {
-  const { data } = await api.get<AppointmentApi[]>("/appointments");
-  return Array.isArray(data) ? data : [];
-}
-
-// ---------- CREATE ----------
-export async function createAppointment(body: CreateAppointmentPayload) {
-  // Tu backend (por lo que mostraste en Postman) acepta:
-  // { DoctorUserId, SlotId, Modality } y calcula ScheduledAt internamente desde el Slot.
-  // Si también permites crear con ScheduledAt, lo enviamos igual.
-  const payload = {
-    DoctorUserId: body.doctorUserId,
-    PatientUserId: body.patientUserId,
-    ScheduledAt: body.scheduledAt,
-    DurationMin: body.durationMin,
-    Modality: mapModality(body.modality),
-    SlotId: body.slotId,
-    Reason: body.reason,
-    Notes: body.notes,
+  // Relaciones populadas (si el backend las incluye)
+  Patient?: {
+    FullName?: string;
+    Email?: string;
   };
-
-  const { data } = await api.post<AppointmentApi>("/appointments", payload);
-  return data;
+  Doctor?: {
+    FullName?: string;
+    Specialty?: string;
+  };
 }
 
+/** Nota médica */
+export interface AppointmentNoteApi {
+  Id: number | string;
+  AppointmentId: number | string;
+  DoctorUserId: number | string;
+  Content: string;
+  CreatedAt: string;
+}
+
+/** Payload para crear cita */
+export interface CreateAppointmentPayload {
+  DoctorUserId: number | string;
+  SlotId: number | string;
+  Modality: ModalityApi;
+  Reason?: string;
+}
+
+/** Payload para actualizar estado */
+export interface UpdateAppointmentStatusPayload {
+  Status: AppointmentStatus;
+}
+
+/** Payload para crear nota */
+export interface CreateAppointmentNotePayload {
+  Content: string;
+}
+
+/** Token de video */
+export interface VideoTokenResponse {
+  token: string;
+  roomName: string;
+  participantName: string;
+}
+
+// ========== FUNCIONES API ==========
+
+/**
+ * Listar citas (con filtros opcionales)
+ * GET /appointments?patientId=X&doctorId=Y&status=Z
+ */
+export async function listAppointments(params?: {
+  patientId?: number | string;
+  doctorId?: number | string;
+  status?: AppointmentStatus;
+}): Promise<AppointmentApi[]> {
+  try {
+    const { data } = await api.get<AppointmentApi[]>("/appointments", { params });
+    return Array.isArray(data) ? data : [];
+  } catch (err: any) {
+    console.error("[APPOINTMENTS] Error listando citas:", err);
+    throw new Error(
+      err?.response?.data?.message || "Error al obtener citas"
+    );
+  }
+}
+
+/**
+ * Obtener cita por ID
+ * GET /appointments/:id
+ */
+export async function getAppointmentById(id: number | string): Promise<AppointmentApi> {
+  try {
+    const { data } = await api.get<AppointmentApi>(`/appointments/${id}`);
+    return data;
+  } catch (err: any) {
+    console.error("[APPOINTMENTS] Error obteniendo cita:", err);
+    throw new Error(
+      err?.response?.data?.message || "Error al obtener cita"
+    );
+  }
+}
+
+/**
+ * Crear nueva cita
+ * POST /appointments
+ */
+export async function createAppointment(
+  payload: CreateAppointmentPayload
+): Promise<AppointmentApi> {
+  try {
+    const { data } = await api.post<AppointmentApi>("/appointments", payload);
+    return data;
+  } catch (err: any) {
+    console.error("[APPOINTMENTS] Error creando cita:", err);
+    throw new Error(
+      err?.response?.data?.message || "Error al crear cita"
+    );
+  }
+}
+
+/**
+ * Actualizar estado de cita
+ * PATCH /appointments/:id/status
+ */
+export async function updateAppointmentStatus(
+  id: number | string,
+  payload: UpdateAppointmentStatusPayload
+): Promise<AppointmentApi> {
+  try {
+    const { data } = await api.patch<AppointmentApi>(
+      `/appointments/${id}/status`,
+      payload
+    );
+    return data;
+  } catch (err: any) {
+    console.error("[APPOINTMENTS] Error actualizando estado:", err);
+    throw new Error(
+      err?.response?.data?.message || "Error al actualizar estado de cita"
+    );
+  }
+}
+
+/**
+ * Confirmar cita (helper)
+ */
+export async function confirmAppointment(id: number | string): Promise<AppointmentApi> {
+  return updateAppointmentStatus(id, { Status: "CONFIRMED" });
+}
+
+/**
+ * Cancelar cita (helper)
+ */
+export async function cancelAppointment(id: number | string): Promise<AppointmentApi> {
+  return updateAppointmentStatus(id, { Status: "CANCELLED" });
+}
+
+/**
+ * Completar cita (helper)
+ */
+export async function completeAppointment(id: number | string): Promise<AppointmentApi> {
+  return updateAppointmentStatus(id, { Status: "COMPLETED" });
+}
+
+/**
+ * Crear nota médica para una cita
+ * POST /appointments/:id/notes
+ */
+export async function createAppointmentNote(
+  appointmentId: number | string,
+  payload: CreateAppointmentNotePayload
+): Promise<AppointmentNoteApi> {
+  try {
+    const { data } = await api.post<AppointmentNoteApi>(
+      `/appointments/${appointmentId}/notes`,
+      payload
+    );
+    return data;
+  } catch (err: any) {
+    console.error("[APPOINTMENTS] Error creando nota:", err);
+    throw new Error(
+      err?.response?.data?.message || "Error al crear nota médica"
+    );
+  }
+}
+
+/**
+ * Obtener token para videollamada
+ * POST /appointments/:id/video
+ */
+export async function getVideoToken(
+  appointmentId: number | string
+): Promise<VideoTokenResponse> {
+  try {
+    const { data } = await api.post<VideoTokenResponse>(
+      `/appointments/${appointmentId}/video`
+    );
+    return data;
+  } catch (err: any) {
+    console.error("[APPOINTMENTS] Error obteniendo token de video:", err);
+    throw new Error(
+      err?.response?.data?.message || "Error al obtener token de videollamada"
+    );
+  }
+}
