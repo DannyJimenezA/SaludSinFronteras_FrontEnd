@@ -1,6 +1,6 @@
 // src/services/users.ts
 import { api } from "../lib/api";
-import type { User } from "../types/user";
+import type { User, Gender } from "../types/user";
 
 /** Si en algún momento activas app.setGlobalPrefix('api'), NO cambies esto:
  * el prefix lo añade api.baseURL (VITE_API_PREFIX), deja el path tal cual. */
@@ -9,8 +9,7 @@ const USERS_ME_PATH = "/users/me";
 /** Mapea el usuario de la API (puede venir en PascalCase) a nuestro modelo User (camelCase). */
 function mapUserFromApi(u: any): User {
   // id puede venir como bigint serializado (string) o number
-  const id =
-    u?.id ?? u?.Id ?? u?.userId ?? u?.UserId ?? "";
+  const id = u?.id ?? u?.Id ?? u?.userId ?? u?.UserId ?? "";
   const normId = typeof id === "bigint" ? id.toString() : String(id);
 
   return {
@@ -56,11 +55,16 @@ export async function getMe(): Promise<User> {
   return mapUserFromApi(data);
 }
 
-/** Acepta camelCase y lo mapea a PascalCase que espera tu backend (FullName, Phone). */
-export async function updateMe(payload: { fullName?: string; phone?: string }): Promise<User> {
+/** Acepta camelCase y lo mapea a PascalCase que espera tu backend (FullName, Phone, Gender). */
+export async function updateMe(payload: {
+  fullName?: string;
+  phone?: string;
+  gender?: Gender | string;
+}): Promise<User> {
   const dto: Record<string, string> = {};
   if (payload.fullName !== undefined) dto.FullName = payload.fullName;
   if (payload.phone !== undefined) dto.Phone = payload.phone;
+  if (payload.gender !== undefined) dto.Gender = String(payload.gender);
 
   const { data } = await api.patch<any>(USERS_ME_PATH, dto);
   if (!data) throw new Error("Respuesta vacía de PATCH /users/me");
