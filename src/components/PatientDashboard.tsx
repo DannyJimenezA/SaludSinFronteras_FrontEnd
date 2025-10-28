@@ -17,10 +17,13 @@ import {
   Star,
   MapPin,
   Languages,
+  CreditCard,
+  ShieldCheck,
 } from "lucide-react";
 
 import { usePatientDashboard } from "../hooks/usePatientDashboard";
 import { useDoctorAvailability, useCreateAppointment } from "../hooks/useSchedule";
+import { NotificationCenter } from "./NotificationCenter";
 
 /* ---------------- Tipos “view model” locales ---------------- */
 type UpcomingAppointment = {
@@ -180,12 +183,7 @@ export function PatientDashboard({
             <p className="text-muted-foreground">Tu salud es nuestra prioridad</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" className="relative">
-              <Bell className="h-4 w-4" />
-              <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">
-                3
-              </Badge>
-            </Button>
+            <NotificationCenter />
             <Button variant="outline" onClick={() => navigate("/settings")}>
               Configuración
             </Button>
@@ -487,6 +485,44 @@ export function PatientDashboard({
                     {m.unread && <Badge className="bg-red-500">!</Badge>}
                   </div>
                 ))}
+              </CardContent>
+            </Card>
+
+            {/* Accesos Rápidos - NUEVAS FUNCIONALIDADES */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ShieldCheck className="h-5 w-5" />
+                  Accesos Rápidos
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => navigate("/medical-history")}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Ver Historial Médico
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => navigate("/subscription")}
+                >
+                  <CreditCard className="h-4 w-4 mr-2" />
+                  Gestionar Suscripción
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => navigate("/payments")}
+                >
+                  <CreditCard className="h-4 w-4 mr-2" />
+                  Pagos y Facturación
+                </Button>
               </CardContent>
             </Card>
 

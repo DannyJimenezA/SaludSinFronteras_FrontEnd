@@ -6,3 +6,8 @@ export * from "./appointments";
 export * from "./messaging";
 export * from "./catalog";
 export * from "./patient-dashboard";
+export * from "./billing";
+export * from "./medical-records";
+export * from "./verification";
+export * from "./video";
+export * from "./subscriptions";

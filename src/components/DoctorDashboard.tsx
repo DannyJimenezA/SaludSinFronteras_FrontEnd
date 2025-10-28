@@ -14,9 +14,11 @@ import {
   MessageSquare,
   Stethoscope,
   ClipboardList,
+  ShieldCheck,
 } from "lucide-react";
 
 import { useDoctorDashboard } from "../hooks/useDoctorDashboard";
+import { NotificationCenter } from "./NotificationCenter";
 
 export function DoctorDashboard() {
   const navigate = useNavigate();
@@ -49,12 +51,7 @@ export function DoctorDashboard() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" className="relative">
-              <Bell className="h-4 w-4" />
-              <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">
-                {messages.length}
-              </Badge>
-            </Button>
+            <NotificationCenter />
             <Button variant="outline" onClick={() => navigate("/settings")}>
               Configuración
             </Button>
@@ -143,6 +140,13 @@ export function DoctorDashboard() {
                   >
                     <Calendar className="h-6 w-6" />
                     Ver Agenda
+                  </Button>
+                  <Button
+                    className="h-auto flex-col gap-2 p-4"
+                    onClick={() => navigate("/verification")}
+                  >
+                    <ShieldCheck className="h-6 w-6" />
+                    Verificación
                   </Button>
                   <Button
                     className="h-auto flex-col gap-2 p-4"

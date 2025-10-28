@@ -4,6 +4,8 @@ import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-
 import { User } from "./types/user";
 import { getMe } from "./services/users";
 import { AuthProvider } from "./contexts/AuthContext";
+import { Toaster } from "sonner";
+import "@livekit/components-styles";
 import { LandingPage } from "./components/LandingPage";
 import { WelcomeLogin } from "./components/WelcomeLogin";
 import { ForgotPassword } from "./components/ForgotPassword";
@@ -19,6 +21,15 @@ import { Settings as SettingsPage } from "./components/Settings";
 import { PaymentsBilling } from "./components/PaymentsBilling";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { NotFound } from "./components/NotFound";
+
+// Nuevos componentes implementados
+import { MedicalHistoryNew } from "./components/MedicalHistoryNew";
+import { MedicalRecordDetail } from "./components/MedicalRecordDetail";
+import { DoctorVerification } from "./components/DoctorVerification";
+import { VideoCallRoom } from "./components/VideoCallRoom";
+import { SubscriptionPlans } from "./components/SubscriptionPlans";
+import { ChatWithWebSocket } from "./components/ChatWithWebSocket";
+import { AdminVerificationPanel } from "./components/AdminVerificationPanel";
 
 type UserType = "patient" | "doctor" | "admin" | null;
 
@@ -107,6 +118,7 @@ export default function App() {
 
   return (
     <AuthProvider currentUser={currentUser}>
+      <Toaster position="top-right" richColors />
       <div className="min-h-screen bg-background">
         <Routes>
           {/* Ruta principal - Landing Page */}
@@ -199,6 +211,78 @@ export default function App() {
           element={
             <ProtectedRoute isAllowed={currentUser !== null}>
               <MedicalHistory />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* === NUEVAS RUTAS IMPLEMENTADAS === */}
+
+        {/* Historial médico con API real */}
+        <Route
+          path="/medical-history"
+          element={
+            <ProtectedRoute isAllowed={currentUser !== null}>
+              <MedicalHistoryNew />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Detalle de registro médico individual */}
+        <Route
+          path="/medical-records/:recordId"
+          element={
+            <ProtectedRoute isAllowed={currentUser !== null}>
+              <MedicalRecordDetail />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Verificación de doctores */}
+        <Route
+          path="/verification"
+          element={
+            <ProtectedRoute isAllowed={currentUser === "doctor"}>
+              <DoctorVerification />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Video llamada con LiveKit */}
+        <Route
+          path="/video-call/:appointmentId"
+          element={
+            <ProtectedRoute isAllowed={currentUser !== null}>
+              <VideoCallRoom />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Planes de suscripción */}
+        <Route
+          path="/subscription"
+          element={
+            <ProtectedRoute isAllowed={currentUser !== null}>
+              <SubscriptionPlans />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Chat en tiempo real */}
+        <Route
+          path="/chat/:conversationId"
+          element={
+            <ProtectedRoute isAllowed={currentUser !== null}>
+              <ChatWithWebSocket />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Panel de administración de verificaciones */}
+        <Route
+          path="/admin/verifications"
+          element={
+            <ProtectedRoute isAllowed={currentUser === "admin"}>
+              <AdminVerificationPanel />
             </ProtectedRoute>
           }
         />
