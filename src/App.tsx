@@ -30,6 +30,11 @@ import { VideoCallRoom } from "./components/VideoCallRoom";
 import { SubscriptionPlans } from "./components/SubscriptionPlans";
 import { ChatWithWebSocket } from "./components/ChatWithWebSocket";
 import { AdminVerificationPanel } from "./components/AdminVerificationPanel";
+import { NuevaCita } from "./components/NuevaCita";
+import { Mensajes } from "./components/Mensajes";
+import { MisCitas } from "./components/MisCitas";
+import { AgendarCitaDoctor } from "./components/AgendarCitaDoctor";
+import { AdminSpecialties } from "./components/AdminSpecialties";
 
 type UserType = "patient" | "doctor" | "admin" | null;
 
@@ -287,6 +292,16 @@ export default function App() {
           }
         />
 
+        {/* Panel de administración de especialidades */}
+        <Route
+          path="/admin/specialties"
+          element={
+            <ProtectedRoute isAllowed={currentUser === "admin"}>
+              <AdminSpecialties />
+            </ProtectedRoute>
+          }
+        />
+
         <Route
           path="/settings"
           element={
@@ -307,6 +322,48 @@ export default function App() {
 
         {/* Alias para búsqueda de médicos */}
         <Route path="/search-doctors" element={<Navigate to="/appointments" replace />} />
+
+        {/* === RUTAS MINIMALISTAS DASHBOARD === */}
+
+        {/* Nueva cita - página básica */}
+        <Route
+          path="/nueva-cita"
+          element={
+            <ProtectedRoute isAllowed={currentUser !== null}>
+              <NuevaCita />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Agendar cita con doctor específico */}
+        <Route
+          path="/nueva-cita/:doctorId"
+          element={
+            <ProtectedRoute isAllowed={currentUser !== null}>
+              <AgendarCitaDoctor />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Mensajes - página básica */}
+        <Route
+          path="/mensajes"
+          element={
+            <ProtectedRoute isAllowed={currentUser !== null}>
+              <Mensajes />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Mis citas - página básica */}
+        <Route
+          path="/mis-citas"
+          element={
+            <ProtectedRoute isAllowed={currentUser !== null}>
+              <MisCitas />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Ruta 404 */}
         <Route path="*" element={<NotFound />} />
