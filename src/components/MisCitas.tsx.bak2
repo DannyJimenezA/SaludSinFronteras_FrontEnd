@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
@@ -17,7 +17,7 @@ type FilterType = "all" | "upcoming" | "past" | "cancelled";
 
 export function MisCitas() {
   const navigate = useNavigate();
-  const [activeFilter, setActiveFilter] = useState<FilterType>("upcoming");
+  const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [order, setOrder] = useState<'asc' | 'desc'>('desc');
   const limit = 10;
@@ -34,13 +34,6 @@ export function MisCitas() {
   // Extrae datos y paginación del response de "Todas"
   const allData = allResponse?.data || [];
   const pagination = allResponse?.pagination;
-
-  // Debug log para ver qué datos llegan
-  useEffect(() => {
-    if (activeFilter === "past" && pastData) {
-      console.log("Past appointments received:", pastData);
-    }
-  }, [activeFilter, pastData]);
 
   // Selecciona los datos según el filtro activo
   const getActiveData = () => {
@@ -165,6 +158,13 @@ export function MisCitas() {
             <div className="flex items-center justify-between">
               <div className="flex gap-4">
                 <Button
+                  variant={activeFilter === "all" ? "default" : "outline"}
+                  onClick={() => handleFilterChange("all")}
+                  className={activeFilter === "all" ? "bg-primary" : ""}
+                >
+                  Todas
+                </Button>
+                <Button
                   variant={activeFilter === "upcoming" ? "default" : "outline"}
                   onClick={() => handleFilterChange("upcoming")}
                   className={activeFilter === "upcoming" ? "bg-primary" : ""}
@@ -184,13 +184,6 @@ export function MisCitas() {
                   className={activeFilter === "cancelled" ? "bg-primary" : ""}
                 >
                   Canceladas
-                </Button>
-                <Button
-                  variant={activeFilter === "all" ? "default" : "outline"}
-                  onClick={() => handleFilterChange("all")}
-                  className={activeFilter === "all" ? "bg-primary" : ""}
-                >
-                  Todas
                 </Button>
               </div>
 
@@ -212,18 +205,11 @@ export function MisCitas() {
         {/* Lista de citas */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-xl text-foreground flex items-center justify-between">
-              <span>
-                {activeFilter === "all" && "Todas las Citas"}
-                {activeFilter === "upcoming" && "Próximas Citas"}
-                {activeFilter === "past" && "Citas Pasadas"}
-                {activeFilter === "cancelled" && "Citas Canceladas"}
-              </span>
-              {!isLoading && (
-                <Badge variant="secondary">
-                  {appointments.length} cita{appointments.length !== 1 ? "s" : ""}
-                </Badge>
-              )}
+            <CardTitle className="text-xl text-foreground">
+              {activeFilter === "all" && "Todas las Citas"}
+              {activeFilter === "upcoming" && "Próximas Citas"}
+              {activeFilter === "past" && "Citas Pasadas"}
+              {activeFilter === "cancelled" && "Citas Canceladas"}
             </CardTitle>
           </CardHeader>
           <CardContent>

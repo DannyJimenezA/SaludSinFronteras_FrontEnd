@@ -35,6 +35,8 @@ import { Mensajes } from "./components/Mensajes";
 import { MisCitas } from "./components/MisCitas";
 import { AgendarCitaDoctor } from "./components/AgendarCitaDoctor";
 import { AdminSpecialties } from "./components/AdminSpecialties";
+import { DoctorAppointments } from "./components/DoctorAppointments";
+import { DoctorAvailability } from "./components/DoctorAvailability";
 
 type UserType = "patient" | "doctor" | "admin" | null;
 
@@ -179,7 +181,7 @@ export default function App() {
           path="/appointments"
           element={
             <ProtectedRoute isAllowed={currentUser !== null}>
-              <AppointmentScheduling />
+              {currentUser === "doctor" ? <DoctorAppointments /> : <AppointmentScheduling />}
             </ProtectedRoute>
           }
         />
@@ -355,12 +357,32 @@ export default function App() {
           }
         />
 
+        {/* Alias para mensajes */}
+        <Route
+          path="/messages"
+          element={
+            <ProtectedRoute isAllowed={currentUser !== null}>
+              <Mensajes />
+            </ProtectedRoute>
+          }
+        />
+
         {/* Mis citas - página básica */}
         <Route
           path="/mis-citas"
           element={
             <ProtectedRoute isAllowed={currentUser !== null}>
               <MisCitas />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Disponibilidad del doctor */}
+        <Route
+          path="/availability"
+          element={
+            <ProtectedRoute isAllowed={currentUser === "doctor"}>
+              <DoctorAvailability />
             </ProtectedRoute>
           }
         />

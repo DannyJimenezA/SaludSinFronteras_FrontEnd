@@ -9,6 +9,20 @@ import {
   useSendMessage,
 } from "../hooks/useConversations";
 import { toast } from "sonner";
+import { getToken } from "../lib/api";
+
+// Helper para decodificar JWT y obtener el user ID
+function getUserIdFromToken(): string | null {
+  const token = getToken();
+  if (!token) return null;
+
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.sub ? String(payload.sub) : null;
+  } catch {
+    return null;
+  }
+}
 
 export function Mensajes() {
   const navigate = useNavigate();
@@ -54,6 +68,10 @@ export function Mensajes() {
 
   const selectedConversation = conversations?.find(c => c.id === selectedConversationId);
 
+  // Determinar el subtítulo según el rol del usuario
+  const userRole = localStorage.getItem("userRole");
+  const subtitleText = userRole === "DOCTOR" ? "Tus Conversaciones" : "Tus Conversaciones";
+
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-6xl mx-auto space-y-6">
@@ -61,13 +79,13 @@ export function Mensajes() {
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
-            onClick={() => navigate("/patient-dashboard")}
+            onClick={() => navigate(-1)}
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
             <h1 className="text-3xl font-bold text-foreground">Mensajes</h1>
-            <p className="text-muted-foreground mt-1">Consulta con tus médicos</p>
+            <p className="text-muted-foreground mt-1">{subtitleText}</p>
           </div>
         </div>
 
@@ -178,8 +196,9 @@ export function Mensajes() {
                       </div>
                     ) : (
                       messages.map((message) => {
-                        // Determinar si el mensaje es del usuario actual (esto es una simplificación)
-                        const isOwnMessage = message.senderUserId === localStorage.getItem("userId");
+                        // Determinar si el mensaje es del usuario actual
+                        const currentUserId = getUserIdFromToken();
+                        const isOwnMessage = currentUserId && message.senderUserId === currentUserId;
 
                         // Verificar si hay traducción disponible
                         const hasTranslation = message.translation && message.translationLanguage;
@@ -192,7 +211,7 @@ export function Mensajes() {
                             <div
                               className={`max-w-[70%] rounded-lg p-3 ${
                                 isOwnMessage
-                                  ? "bg-primary text-white"
+                                  ? "bg-green-600 text-white"
                                   : "bg-accent text-foreground"
                               }`}
                             >

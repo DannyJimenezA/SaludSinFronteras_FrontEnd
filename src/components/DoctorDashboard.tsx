@@ -2,19 +2,14 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { Avatar, AvatarFallback } from "./ui/avatar";
 import {
   Calendar,
   Clock,
-  Users,
-  FileText,
-  Video,
-  Bell,
-  TrendingUp,
   MessageSquare,
   Stethoscope,
-  ClipboardList,
   ShieldCheck,
+  CheckCircle,
+  ClockAlert,
 } from "lucide-react";
 
 import { useDoctorDashboard } from "../hooks/useDoctorDashboard";
@@ -25,17 +20,16 @@ export function DoctorDashboard() {
   const {
     profile,
     appointments,
-    conversations,
     doctorName,
     doctorSpecialty,
     todaysAppointments,
     stat_today,
-    stat_online,
-    messages,
+    stat_completed,
+    stat_pending,
   } = useDoctorDashboard();
 
   const loading =
-    profile.isLoading || appointments.isLoading || conversations.isLoading;
+    profile.isLoading || appointments.isLoading;
 
   return (
     <div className="min-h-screen bg-background p-4">
@@ -43,9 +37,10 @@ export function DoctorDashboard() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-primary">
+            <h1 className="text-3xl font-bold text-primary">Doctor/a</h1>
+            <p className="text-xl font-semibold text-foreground mt-1">
               {loading ? "Cargando…" : doctorName}
-            </h1>
+            </p>
             <p className="text-muted-foreground">
               {loading ? "—" : doctorSpecialty}
             </p>
@@ -59,7 +54,7 @@ export function DoctorDashboard() {
         </div>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
@@ -74,29 +69,16 @@ export function DoctorDashboard() {
             </CardContent>
           </Card>
 
-          {/* A falta de endpoint real para pacientes activos, mantenemos placeholder amigable */}
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Pacientes Activos</p>
-                  <p className="text-2xl font-bold">—</p>
-                </div>
-                <Users className="h-8 w-8 text-primary" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Consultas Online (hoy)</p>
+                  <p className="text-sm text-muted-foreground">Citas Atendidas</p>
                   <p className="text-2xl font-bold">
-                    {loading ? "…" : stat_online}
+                    {loading ? "…" : stat_completed}
                   </p>
                 </div>
-                <Video className="h-8 w-8 text-primary" />
+                <CheckCircle className="h-8 w-8 text-green-600" />
               </div>
             </CardContent>
           </Card>
@@ -105,18 +87,20 @@ export function DoctorDashboard() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Satisfacción</p>
-                  <p className="text-2xl font-bold">—</p>
+                  <p className="text-sm text-muted-foreground">Citas Pendientes</p>
+                  <p className="text-2xl font-bold">
+                    {loading ? "…" : stat_pending}
+                  </p>
                 </div>
-                <TrendingUp className="h-8 w-8 text-primary" />
+                <ClockAlert className="h-8 w-8 text-orange-600" />
               </div>
             </CardContent>
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column */}
-          <div className="lg:col-span-2 space-y-6">
+        <div className="grid grid-cols-1 gap-6">
+          {/* Main Column */}
+          <div className="space-y-6">
             {/* Quick Actions */}
             <Card>
               <CardHeader>
@@ -129,17 +113,24 @@ export function DoctorDashboard() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <Button
                     className="h-auto flex-col gap-2 p-4"
-                    onClick={() => navigate("/video-call")}
-                  >
-                    <Video className="h-6 w-6" />
-                    Iniciar Consulta
-                  </Button>
-                  <Button
-                    className="h-auto flex-col gap-2 p-4"
                     onClick={() => navigate("/appointments")}
                   >
                     <Calendar className="h-6 w-6" />
-                    Ver Agenda
+                    Ver Citas
+                  </Button>
+                  <Button
+                    className="h-auto flex-col gap-2 p-4"
+                    onClick={() => navigate("/messages")}
+                  >
+                    <MessageSquare className="h-6 w-6" />
+                    Mensajes
+                  </Button>
+                  <Button
+                    className="h-auto flex-col gap-2 p-4"
+                    onClick={() => navigate("/availability")}
+                  >
+                    <Clock className="h-6 w-6" />
+                    Crear Disponibilidad
                   </Button>
                   <Button
                     className="h-auto flex-col gap-2 p-4"
@@ -147,20 +138,6 @@ export function DoctorDashboard() {
                   >
                     <ShieldCheck className="h-6 w-6" />
                     Verificación
-                  </Button>
-                  <Button
-                    className="h-auto flex-col gap-2 p-4"
-                    onClick={() => navigate("/history")}
-                  >
-                    <FileText className="h-6 w-6" />
-                    Historiales
-                  </Button>
-                  <Button
-                    className="h-auto flex-col gap-2 p-4"
-                    onClick={() => navigate("/prescriptions")}
-                  >
-                    <ClipboardList className="h-6 w-6" />
-                    Recetas
                   </Button>
                 </div>
               </CardContent>
@@ -229,87 +206,6 @@ export function DoctorDashboard() {
                 >
                   Ver Agenda Completa
                 </Button>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Right Column */}
-          <div className="space-y-6">
-            {/* Messages */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MessageSquare className="h-5 w-5" />
-                  Mensajes
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {loading && <p className="text-sm text-muted-foreground">Cargando…</p>}
-                {!loading && messages.length === 0 && (
-                  <p className="text-sm text-muted-foreground">Sin mensajes recientes.</p>
-                )}
-
-                {messages.map((m) => (
-                  <div
-                    key={String(m.id)}
-                    className="flex items-start gap-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors"
-                  >
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback>
-                        {m.from
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")
-                          .slice(0, 2)
-                          .toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm font-medium">{m.from}</p>
-                        {m.time && <span className="text-xs text-muted-foreground">{m.time}</span>}
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">{m.message}</p>
-                      {m.unread && <Badge className="mt-2 bg-blue-500">Nuevo</Badge>}
-                    </div>
-                  </div>
-                ))}
-
-                <Button variant="outline" className="w-full">
-                  Ver Todos los Mensajes
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Resumen semanal / placeholders */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Resumen Semanal</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4 text-sm text-muted-foreground">
-                Conectaremos métricas semanales cuando el backend exponga agregados.
-                Por ahora se derivan de citas del día.
-              </CardContent>
-            </Card>
-
-            {/* Estado de Pacientes / placeholder */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Estado de Pacientes</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span>Casos críticos</span>
-                  <Badge variant="destructive">—</Badge>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Seguimiento requerido</span>
-                  <Badge variant="default">—</Badge>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Estables</span>
-                  <Badge variant="secondary">—</Badge>
-                </div>
               </CardContent>
             </Card>
           </div>
