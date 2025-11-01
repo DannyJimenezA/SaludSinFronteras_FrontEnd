@@ -22,31 +22,30 @@ type DashboardData = {
 };
 
 async function fetchPatientDashboard(): Promise<DashboardData> {
-  // 1) Citas del usuario autenticado
-  const apptsRes = await api.get('/appointments'); // tu API lista las citas del usuario logueado
+  // 1) Citas próximas del usuario autenticado usando el nuevo endpoint
+  const apptsRes = await api.get('/appointments/upcoming', {
+    params: { limit: 10 } // Obtener hasta 10 citas próximas
+  });
   const apptsRaw = Array.isArray(apptsRes.data) ? apptsRes.data : [];
 
-  // Deja solo próximas y toma 3
-  const upcoming = apptsRaw
-    .filter((a: any) => ['PENDING', 'CONFIRMED', 'SCHEDULED'].includes(String(a.Status ?? a.status)))
-    .slice(0, 3)
-    .map((a: any): UpcomingAppointment => {
-      const dt = new Date(a.ScheduledAt ?? a.scheduledAt ?? a.startAt ?? Date.now());
-      const yyyy = dt.getFullYear();
-      const mm = String(dt.getMonth() + 1).padStart(2, '0');
-      const dd = String(dt.getDate()).padStart(2, '0');
-      const hh = String(dt.getHours()).padStart(2, '0');
-      const mi = String(dt.getMinutes()).padStart(2, '0');
+  // Mapea la respuesta del nuevo endpoint
+  const upcoming = apptsRaw.map((a: any): UpcomingAppointment => {
+    const dt = new Date(a.scheduledAt);
+    const yyyy = dt.getFullYear();
+    const mm = String(dt.getMonth() + 1).padStart(2, '0');
+    const dd = String(dt.getDate()).padStart(2, '0');
+    const hh = String(dt.getHours()).padStart(2, '0');
+    const mi = String(dt.getMinutes()).padStart(2, '0');
 
-      return {
-        id: Number(a.Id ?? a.id),
-        doctor: a.DoctorName ?? a.doctorName ?? 'Médico',
-        specialty: a.Specialty ?? a.specialty ?? 'General',
-        date: `${yyyy}-${mm}-${dd}`,
-        time: `${hh}:${mi}`,
-        type: (String(a.Modality ?? a.modality).toLowerCase() === 'online') ? 'videollamada' : 'presencial',
-      };
-    });
+    return {
+      id: Number(a.id),
+      doctor: a.doctor?.name || 'Médico',
+      specialty: a.doctor?.specialty || 'General',
+      date: `${yyyy}-${mm}-${dd}`,
+      time: `${hh}:${mi}`,
+      type: (String(a.modality).toLowerCase() === 'online') ? 'videollamada' : 'presencial',
+    };
+  });
 
   // 2) Mensajes del usuario autenticado
   const convRes = await api.get('/conversations/mine');

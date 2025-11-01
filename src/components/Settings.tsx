@@ -23,8 +23,6 @@ import { updateMe } from "../services/users";
 
 import {
   User as UserIcon,
-  Globe,
-  Bell,
   CreditCard,
   Eye,
   EyeOff,
@@ -36,6 +34,8 @@ import {
   ChevronDown,
   ChevronUp,
   AlertTriangle,
+  Pencil,
+  X,
 } from "lucide-react";
 
 interface SettingsProps {
@@ -50,7 +50,7 @@ export function Settings({ onLogout }: SettingsProps) {
   const { data: me, isLoading: loadingMe, isError } = useMe();
   const [saving, setSaving] = useState(false);
   const [birthDate, setBirthDate] = useState<string>("");
-
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
 
   // Campos editables
   const [fullName, setFullName] = useState("");
@@ -58,31 +58,10 @@ export function Settings({ onLogout }: SettingsProps) {
   const [gender, setGender] = useState<"male" | "female" | "other" | "undisclosed">("undisclosed");
   const [address, setAddress] = useState("");
 
-  // Idioma
-  const [selectedLanguage, setSelectedLanguage] = useState("es");
-  const [autoTranslation, setAutoTranslation] = useState(true);
-
   // Seguridad
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
-  const [twoFactorEnabled] = useState(false); // placeholder visual
   const [showChangePassword, setShowChangePassword] = useState(false);
-
-  // Notificaciones
-  const [emailNotifications, setEmailNotifications] = useState(true);
-  const [smsNotifications, setSmsNotifications] = useState(true);
-  const [pushNotifications, setPushNotifications] = useState(true);
-
-  const languages = [
-    { code: "es", name: "Español" },
-    { code: "en", name: "English" },
-    { code: "fr", name: "Français" },
-    { code: "pt", name: "Português" },
-    { code: "de", name: "Deutsch" },
-    { code: "it", name: "Italiano" },
-    { code: "zh", name: "中文" },
-    { code: "ar", name: "العربية" },
-  ];
 
   const paymentMethods = [
     {
@@ -105,7 +84,6 @@ export function Settings({ onLogout }: SettingsProps) {
   useEffect(() => {
     if (!me) return;
     setPhone(me.phone ?? "");
-    if (me.primaryLanguage) setSelectedLanguage(me.primaryLanguage);
 
     // Prefiere FullName; si no existe, compón con first/last
     const composed =
@@ -131,11 +109,28 @@ export function Settings({ onLogout }: SettingsProps) {
         fullName: fullName || undefined,
         phone: phone || undefined,
       });
+      setIsEditingProfile(false);
     } catch (e) {
       console.error(e);
     } finally {
       setSaving(false);
     }
+  }
+
+  function handleCancelEdit() {
+    // Restaurar valores originales del perfil
+    if (me) {
+      setPhone(me.phone ?? "");
+      const composed =
+        me.fullName ??
+        [me.firstName1, me.lastName1, me.lastName2].filter(Boolean).join(" ");
+      setFullName(composed ?? "");
+      const g = (me.gender?.toLowerCase?.() as any) || "undisclosed";
+      setGender(["male", "female", "other", "undisclosed"].includes(g) ? (g as any) : "undisclosed");
+      const d = me?.dateOfBirth ? String(me.dateOfBirth).slice(0, 10) : "";
+      setBirthDate(d);
+    }
+    setIsEditingProfile(false);
   }
 
   // helper para iniciales del avatar
@@ -157,19 +152,39 @@ export function Settings({ onLogout }: SettingsProps) {
         </div>
 
         <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="profile">Perfil</TabsTrigger>
-            <TabsTrigger value="notifications">Notificaciones</TabsTrigger>
-            <TabsTrigger value="billing">Facturación</TabsTrigger>
+            <TabsTrigger value="subscriptions">Suscripciones</TabsTrigger>
           </TabsList>
 
           {/* ===== PERFIL ===== */}
           <TabsContent value="profile" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <UserIcon className="h-5 w-5" />
-                  Información Personal
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <UserIcon className="h-5 w-5" />
+                    Información Personal
+                  </div>
+                  {!isEditingProfile ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsEditingProfile(true)}
+                    >
+                      <Pencil className="h-4 w-4 mr-2" />
+                      Editar
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCancelEdit}
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Cancelar
+                    </Button>
+                  )}
                 </CardTitle>
               </CardHeader>
 
@@ -207,6 +222,7 @@ export function Settings({ onLogout }: SettingsProps) {
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
                         placeholder="Tu nombre completo"
+                        disabled={!isEditingProfile}
                       />
                       {!fullName && (
                         <p className="flex items-center text-xs text-red-500 gap-1">
@@ -229,6 +245,7 @@ export function Settings({ onLogout }: SettingsProps) {
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
                         placeholder="+506 8888 8888"
+                        disabled={!isEditingProfile}
                       />
                       {!phone && (
                         <p className="flex items-center text-xs text-red-500 gap-1">
@@ -245,6 +262,7 @@ export function Settings({ onLogout }: SettingsProps) {
                         type="date"
                         value={birthDate}
                         onChange={(e) => setBirthDate(e.target.value)}
+                        disabled={!isEditingProfile}
                       />
                     </div>
 
@@ -256,6 +274,7 @@ export function Settings({ onLogout }: SettingsProps) {
                         onValueChange={(val: string) =>
                           setGender(val as "male" | "female" | "other" | "undisclosed")
                         }
+                        disabled={!isEditingProfile}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Selecciona un género" />
@@ -284,6 +303,7 @@ export function Settings({ onLogout }: SettingsProps) {
                         value={address}
                         onChange={(e) => setAddress(e.target.value)}
                         placeholder="Calle Principal 123, Ciudad, País"
+                        disabled={!isEditingProfile}
                       />
                       {!address && (
                         <p className="flex items-center text-xs text-red-500 gap-1">
@@ -294,81 +314,16 @@ export function Settings({ onLogout }: SettingsProps) {
                   </div>
                 )}
 
-                <Button
-                  className="w-full sm:w-auto"
-                  onClick={handleSaveProfile}
-                  disabled={saving || loadingMe}
-                >
-                  <Save className="h-4 w-4 mr-2" />
-                  {saving ? "Guardando..." : "Guardar Cambios"}
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Idioma */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Globe className="h-5 w-5" />
-                  Configuración de Idioma
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-2">
-                  <Label>Idioma Principal</Label>
-                  <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {languages.map((lang) => (
-                        <SelectItem key={lang.code} value={lang.code}>
-                          {lang.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-sm text-muted-foreground">
-                    Este será el idioma principal de la interfaz
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label>Traducción Automática</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Traduce automáticamente las conversaciones durante las videollamadas
-                    </p>
-                  </div>
-                  <Switch
-                    checked={autoTranslation}
-                    onCheckedChange={setAutoTranslation}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Idiomas Secundarios</Label>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Selecciona los idiomas que entiendes para mejorar la traducción
-                  </p>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                    {languages
-                      .filter((lang) => lang.code !== selectedLanguage)
-                      .map((lang) => (
-                        <div key={lang.code} className="flex items-center space-x-2">
-                          <input type="checkbox" id={lang.code} className="rounded" />
-                          <Label htmlFor={lang.code} className="text-sm">
-                            {lang.name}
-                          </Label>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-
-                <Button>
-                  <Save className="h-4 w-4 mr-2" />
-                  Guardar Configuración
-                </Button>
+                {isEditingProfile && (
+                  <Button
+                    className="w-full sm:w-auto"
+                    onClick={handleSaveProfile}
+                    disabled={saving || loadingMe}
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    {saving ? "Guardando..." : "Guardar Cambios"}
+                  </Button>
+                )}
               </CardContent>
             </Card>
 
@@ -436,62 +391,80 @@ export function Settings({ onLogout }: SettingsProps) {
             </Card>
           </TabsContent>
 
-          {/* ===== NOTIFICACIONES ===== */}
-          <TabsContent value="notifications" className="space-y-6">
+          {/* ===== SUSCRIPCIONES ===== */}
+          <TabsContent value="subscriptions" className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Bell className="h-5 w-5" />
-                  Preferencias de Notificaciones
+                  <CreditCard className="h-5 w-5" />
+                  Mi Suscripción
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
+              <CardContent className="space-y-4">
+                <div className="p-4 bg-accent rounded-lg">
+                  <div className="flex items-center justify-between mb-4">
                     <div>
-                      <p className="font-medium">Notificaciones por Email</p>
-                      <p className="text-sm text-muted-foreground">
-                        Recibe recordatorios de citas y actualizaciones importantes
-                      </p>
+                      <h3 className="text-xl font-bold text-primary">Plan Actual</h3>
+                      <p className="text-sm text-muted-foreground">Plan Gratuito</p>
                     </div>
-                    <Switch
-                      checked={emailNotifications}
-                      onCheckedChange={setEmailNotifications}
-                    />
+                    <Badge className="bg-green-100 text-green-800">Activo</Badge>
                   </div>
-
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">Notificaciones SMS</p>
-                      <p className="text-sm text-muted-foreground">
-                        Recibe mensajes de texto para citas urgentes
-                      </p>
-                    </div>
-                    <Switch
-                      checked={smsNotifications}
-                      onCheckedChange={setSmsNotifications}
-                    />
+                  <div className="space-y-2 text-sm">
+                    <p className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Citas mensuales:</span>
+                      <span className="font-medium">2 de 2 usadas</span>
+                    </p>
+                    <p className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Próxima renovación:</span>
+                      <span className="font-medium">1 de diciembre, 2025</span>
+                    </p>
+                    <p className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Precio:</span>
+                      <span className="font-medium text-lg">$0.00</span>
+                    </p>
                   </div>
+                </div>
 
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">Notificaciones Push</p>
-                      <p className="text-sm text-muted-foreground">
-                        Recibe notificaciones en tiempo real en tu dispositivo
-                      </p>
+                <div className="pt-4">
+                  <h4 className="font-semibold mb-3">Actualizar Plan</h4>
+                  <div className="grid gap-4">
+                    {/* Plan Básico */}
+                    <div className="border rounded-lg p-4 hover:border-primary transition-colors cursor-pointer">
+                      <div className="flex items-center justify-between mb-2">
+                        <h5 className="font-semibold text-lg">Plan Básico</h5>
+                        <Badge variant="outline">Popular</Badge>
+                      </div>
+                      <p className="text-2xl font-bold text-primary mb-2">$9.99<span className="text-sm font-normal text-muted-foreground">/mes</span></p>
+                      <ul className="space-y-2 text-sm text-muted-foreground mb-4">
+                        <li>✓ 5 citas mensuales</li>
+                        <li>✓ Mensajería con médicos</li>
+                        <li>✓ Soporte por email</li>
+                      </ul>
+                      <Button className="w-full">Seleccionar Plan</Button>
                     </div>
-                    <Switch
-                      checked={pushNotifications}
-                      onCheckedChange={setPushNotifications}
-                    />
+
+                    {/* Plan Premium */}
+                    <div className="border-2 border-primary rounded-lg p-4 hover:shadow-lg transition-shadow cursor-pointer">
+                      <div className="flex items-center justify-between mb-2">
+                        <h5 className="font-semibold text-lg">Plan Premium</h5>
+                        <Badge className="bg-primary text-white">Recomendado</Badge>
+                      </div>
+                      <p className="text-2xl font-bold text-primary mb-2">$19.99<span className="text-sm font-normal text-muted-foreground">/mes</span></p>
+                      <ul className="space-y-2 text-sm text-muted-foreground mb-4">
+                        <li>✓ Citas ilimitadas</li>
+                        <li>✓ Mensajería con médicos</li>
+                        <li>✓ Videollamadas HD</li>
+                        <li>✓ Soporte prioritario 24/7</li>
+                        <li>✓ Recordatorios automáticos</li>
+                      </ul>
+                      <Button className="w-full">Seleccionar Plan</Button>
+                    </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
 
-          {/* ===== FACTURACIÓN ===== */}
-          <TabsContent value="billing" className="space-y-6">
+            {/* Métodos de Pago */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
