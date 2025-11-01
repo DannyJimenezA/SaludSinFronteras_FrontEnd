@@ -1,7 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
-import { Calendar, Clock, MessageSquare, Video, Plus } from "lucide-react";
+import { Badge } from "./ui/badge";
+import { Calendar, Clock, MessageSquare, Video, Plus, X } from "lucide-react";
 import { usePatientDashboard } from "../hooks/usePatientDashboard";
 import { NotificationCenter } from "./NotificationCenter";
 
@@ -175,35 +176,54 @@ export function PatientDashboard({
               </div>
             ) : (
               <>
-                {upcomingAppointments.map((appointment) => (
-                  <div
-                    key={appointment.id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="p-3 bg-primary/10 rounded-lg">
-                        <Video className="h-6 w-6 text-primary" />
-                      </div>
-                      <div>
-                        <h4 className="font-medium text-lg text-foreground">{appointment.doctor}</h4>
-                        <p className="text-sm text-muted-foreground">{appointment.specialty}</p>
-                        <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
-                          <Clock className="h-4 w-4" />
-                          <span>{appointment.date}, {appointment.time}</span>
-                          <span className="ml-2">30 minutos</span>
+                {upcomingAppointments.map((appointment) => {
+                  // Formatear la fecha para mostrar "1 de noviembre de 2025"
+                  const dateObj = new Date(appointment.date);
+                  const formattedDate = dateObj.toLocaleDateString('es-ES', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric'
+                  });
+
+                  return (
+                    <div
+                      key={appointment.id}
+                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="p-3 bg-primary/10 rounded-lg">
+                          <Video className="h-6 w-6 text-primary" />
+                        </div>
+                        <div className="space-y-1">
+                          <h4 className="font-medium text-lg text-foreground">{appointment.doctor}</h4>
+                          <p className="text-sm text-muted-foreground">{appointment.specialty}</p>
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              <Calendar className="h-4 w-4" />
+                              <span>{formattedDate}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Clock className="h-4 w-4" />
+                              <span>{appointment.time}</span>
+                            </div>
+                            <span>• 30 min</span>
+                          </div>
                         </div>
                       </div>
+                      <div className="flex items-center gap-3">
+                        <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                          Pendiente
+                        </Badge>
+                        <Button
+                          className="bg-primary hover:bg-primary/90"
+                          onClick={() => navigate(`/mis-citas`)}
+                        >
+                          Detalles
+                        </Button>
+                      </div>
                     </div>
-                    {appointment.type === "videollamada" && (
-                      <Button
-                        className="bg-primary hover:bg-primary/90"
-                        onClick={() => navigate("/video-call")}
-                      >
-                        Unirse
-                      </Button>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </>
             )}
           </CardContent>

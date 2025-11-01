@@ -57,15 +57,16 @@ async function getDoctorAppointmentsByDate(startDate?: string, endDate?: string)
 export function DoctorAppointments() {
   const navigate = useNavigate();
 
-  // Obtener la fecha actual en la zona horaria local de Costa Rica (UTC-6)
-  const getLocalDate = () => {
+  // Obtener la fecha actual en la zona horaria local
+  const getTodayDate = () => {
     const now = new Date();
-    // Para Costa Rica (UTC-6), restamos 6 horas de la hora UTC actual
-    const localDate = new Date(now.getTime() - (6 * 60 * 60 * 1000));
-    return localDate.toISOString().split("T")[0];
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
-  const [selectedDate, setSelectedDate] = useState<string>(getLocalDate());
+  const [selectedDate, setSelectedDate] = useState<string>(getTodayDate());
   const [searchQuery, setSearchQuery] = useState<string>("");
 
   const { data: appointments, isLoading, refetch } = useQuery({
@@ -182,7 +183,7 @@ export function DoctorAppointments() {
                 <div className="flex items-end gap-2">
                   <Button
                     variant="outline"
-                    onClick={() => setSelectedDate(getLocalDate())}
+                    onClick={() => setSelectedDate(getTodayDate())}
                   >
                     Hoy
                   </Button>
@@ -190,8 +191,11 @@ export function DoctorAppointments() {
                     variant="outline"
                     onClick={() => {
                       const now = new Date();
-                      const tomorrow = new Date(now.getTime() - (6 * 60 * 60 * 1000) + (24 * 60 * 60 * 1000));
-                      setSelectedDate(tomorrow.toISOString().split("T")[0]);
+                      now.setDate(now.getDate() + 1);
+                      const year = now.getFullYear();
+                      const month = String(now.getMonth() + 1).padStart(2, '0');
+                      const day = String(now.getDate()).padStart(2, '0');
+                      setSelectedDate(`${year}-${month}-${day}`);
                     }}
                   >
                     Mañana
@@ -267,16 +271,11 @@ export function DoctorAppointments() {
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <div className="flex items-center gap-1">
                           <Clock className="h-4 w-4" />
-                          {(() => {
-                            // Convertir la hora UTC a hora local de Costa Rica (UTC-6)
-                            const utcDate = new Date(apt.scheduledAt);
-                            const localDate = new Date(utcDate.getTime() - (6 * 60 * 60 * 1000));
-                            return localDate.toLocaleTimeString("es-ES", {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                              timeZone: "UTC"
-                            });
-                          })()}
+                          {new Date(apt.scheduledAt).toLocaleTimeString("es-ES", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            hour12: true
+                          })}
                         </div>
                         <div className="flex items-center gap-1">
                           {getModalityIcon(apt.modality)}

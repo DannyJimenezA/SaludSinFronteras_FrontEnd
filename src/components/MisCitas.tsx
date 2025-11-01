@@ -82,7 +82,8 @@ export function MisCitas() {
     });
     const timeFormatted = date.toLocaleTimeString('es-ES', {
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      hour12: true
     });
     return { date: dateFormatted, time: timeFormatted };
   };

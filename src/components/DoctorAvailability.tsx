@@ -52,10 +52,13 @@ export function DoctorAvailability() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // Obtener fecha de hoy en formato YYYY-MM-DD
+  // Obtener fecha de hoy en formato YYYY-MM-DD en timezone local
   const getTodayDate = () => {
     const now = new Date();
-    return now.toISOString().split("T")[0];
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
   // Estado para el formulario
@@ -202,7 +205,7 @@ export function DoctorAvailability() {
                   type="date"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
-                  min={new Date().toISOString().split("T")[0]}
+                  min={getTodayDate()}
                 />
               </div>
 

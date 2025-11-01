@@ -1,37 +1,3 @@
-import { useAuth } from "../contexts/AuthContext";
-import { useMe } from "../hooks/useUsers";
-import { PatientSettings } from "./PatientSettings";
-import { DoctorSettings } from "./DoctorSettings";
-
-interface SettingsProps {
-  onLogout: () => void;
-}
-
-export function Settings({ onLogout }: SettingsProps) {
-  const { user } = useAuth();
-  const { data: me, isLoading } = useMe();
-
-  // Mientras carga, mostrar un loader simple
-  if (isLoading || !me) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">Cargando configuración...</p>
-      </div>
-    );
-  }
-
-  // Determinar qué componente mostrar según el rol
-  const userRole = user?.role || me?.role;
-
-  if (userRole === "DOCTOR") {
-    return <DoctorSettings onLogout={onLogout} />;
-  }
-
-  // Por defecto, mostrar configuración de paciente
-  return <PatientSettings onLogout={onLogout} />;
-}
-
-// Legacy imports for deprecated component below
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -39,6 +5,7 @@ import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import { Textarea } from "./ui/textarea";
 import {
   Select,
   SelectContent,
@@ -48,26 +15,37 @@ import {
 } from "./ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Avatar, AvatarFallback } from "./ui/avatar";
+import { useAuth } from "../contexts/AuthContext";
+
+import { useMe } from "../hooks/useUsers";
 import { updateMe } from "../services/users";
+
 import {
   User as UserIcon,
-  CreditCard,
+  Briefcase,
   Eye,
   EyeOff,
   Camera,
   Save,
   LogOut,
-  Trash2,
   Key,
   ChevronDown,
   ChevronUp,
   AlertTriangle,
   Pencil,
   X,
+  Stethoscope,
+  GraduationCap,
+  FileText,
+  Calendar,
+  Clock,
 } from "lucide-react";
 
-// Componente legacy mantenido por si acaso (deprecated - usar PatientSettings o DoctorSettings)
-export function SettingsLegacy({ onLogout }: SettingsProps) {
+interface DoctorSettingsProps {
+  onLogout: () => void;
+}
+
+export function DoctorSettings({ onLogout }: DoctorSettingsProps) {
   const navigate = useNavigate();
   const { getDashboardRoute } = useAuth();
 
@@ -76,41 +54,30 @@ export function SettingsLegacy({ onLogout }: SettingsProps) {
   const [saving, setSaving] = useState(false);
   const [birthDate, setBirthDate] = useState<string>("");
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [isEditingProfessional, setIsEditingProfessional] = useState(false);
 
-  // Campos editables
+  // Campos editables - Personales
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [gender, setGender] = useState<"male" | "female" | "other" | "undisclosed">("undisclosed");
-  const [address, setAddress] = useState("");
+
+  // Campos editables - Profesionales
+  const [licenseNumber, setLicenseNumber] = useState("");
+  const [yearsExperience, setYearsExperience] = useState("");
+  const [medicalSchool, setMedicalSchool] = useState("");
+  const [bio, setBio] = useState("");
+  const [specialties, setSpecialties] = useState<string[]>([]);
 
   // Seguridad
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
 
-  const paymentMethods = [
-    {
-      id: 1,
-      type: "card" as const,
-      last4: "1234",
-      brand: "Visa",
-      expiry: "12/26",
-      isDefault: true,
-    },
-    {
-      id: 2,
-      type: "paypal" as const,
-      email: "juan@email.com",
-      isDefault: false,
-    },
-  ];
-
   // Prellenar con el perfil
   useEffect(() => {
     if (!me) return;
     setPhone(me.phone ?? "");
 
-    // Prefiere FullName; si no existe, compón con first/last
     const composed =
       me.fullName ??
       [me.firstName1, me.lastName1, me.lastName2].filter(Boolean).join(" ");
@@ -119,17 +86,20 @@ export function SettingsLegacy({ onLogout }: SettingsProps) {
     const g = (me.gender?.toLowerCase?.() as any) || "undisclosed";
     setGender(["male", "female", "other", "undisclosed"].includes(g) ? (g as any) : "undisclosed");
 
-     const d = me?.dateOfBirth ? String(me.dateOfBirth).slice(0, 10) : "";
+    const d = me?.dateOfBirth ? String(me.dateOfBirth).slice(0, 10) : "";
     setBirthDate(d);
 
-    // Si en tu API luego agregas address, aquí podrías setearlo.
-    // setAddress((me as any)?.address ?? "");
+    // Campos profesionales (estos vendrían del perfil de doctor)
+    // setLicenseNumber((me as any)?.doctorProfile?.licenseNumber ?? "");
+    // setYearsExperience((me as any)?.doctorProfile?.yearsExperience?.toString() ?? "");
+    // setMedicalSchool((me as any)?.doctorProfile?.medicalSchool ?? "");
+    // setBio((me as any)?.doctorProfile?.bio ?? "");
+    // setSpecialties((me as any)?.doctorProfile?.specialties ?? []);
   }, [me]);
 
   async function handleSaveProfile() {
     try {
       setSaving(true);
-      // Tu servicio tipa solo { fullName?, phone? }. No enviamos gender/address para evitar TS2353.
       await updateMe({
         fullName: fullName || undefined,
         phone: phone || undefined,
@@ -142,8 +112,20 @@ export function SettingsLegacy({ onLogout }: SettingsProps) {
     }
   }
 
-  function handleCancelEdit() {
-    // Restaurar valores originales del perfil
+  async function handleSaveProfessional() {
+    try {
+      setSaving(true);
+      // Aquí iría la llamada para actualizar el perfil profesional
+      // await updateDoctorProfile({ licenseNumber, yearsExperience, medicalSchool, bio });
+      setIsEditingProfessional(false);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleCancelEditProfile() {
     if (me) {
       setPhone(me.phone ?? "");
       const composed =
@@ -158,12 +140,16 @@ export function SettingsLegacy({ onLogout }: SettingsProps) {
     setIsEditingProfile(false);
   }
 
-  // helper para iniciales del avatar
+  function handleCancelEditProfessional() {
+    // Restaurar valores originales
+    setIsEditingProfessional(false);
+  }
+
   const avatarInitial =
     (me?.fullName?.[0] ??
       me?.firstName1?.[0] ??
       me?.email?.[0] ??
-      "U")?.toUpperCase?.() || "U";
+      "D")?.toUpperCase?.() || "D";
 
   return (
     <div className="min-h-screen bg-background p-4">
@@ -173,16 +159,17 @@ export function SettingsLegacy({ onLogout }: SettingsProps) {
           <Button variant="outline" onClick={() => navigate(getDashboardRoute())}>
             ← Volver
           </Button>
-          <h1 className="text-2xl font-bold text-primary">Configuración</h1>
+          <h1 className="text-2xl font-bold text-primary">Configuración Profesional</h1>
         </div>
 
         <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="profile">Perfil</TabsTrigger>
-            <TabsTrigger value="subscriptions">Suscripciones</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="profile">Perfil Personal</TabsTrigger>
+            <TabsTrigger value="professional">Perfil Profesional</TabsTrigger>
+            <TabsTrigger value="availability">Disponibilidad</TabsTrigger>
           </TabsList>
 
-          {/* ===== PERFIL ===== */}
+          {/* ===== PERFIL PERSONAL ===== */}
           <TabsContent value="profile" className="space-y-6">
             <Card>
               <CardHeader>
@@ -204,7 +191,7 @@ export function SettingsLegacy({ onLogout }: SettingsProps) {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={handleCancelEdit}
+                      onClick={handleCancelEditProfile}
                     >
                       <X className="h-4 w-4 mr-2" />
                       Cancelar
@@ -217,7 +204,7 @@ export function SettingsLegacy({ onLogout }: SettingsProps) {
                 {/* Foto */}
                 <div className="flex items-center gap-6">
                   <Avatar className="h-24 w-24">
-                    <AvatarFallback className="text-2xl">
+                    <AvatarFallback className="text-2xl bg-primary/10 text-primary">
                       {avatarInitial}
                     </AvatarFallback>
                   </Avatar>
@@ -246,14 +233,9 @@ export function SettingsLegacy({ onLogout }: SettingsProps) {
                         id="fullName"
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
-                        placeholder="Tu nombre completo"
+                        placeholder="Dr. Juan Pérez González"
                         disabled={!isEditingProfile}
                       />
-                      {!fullName && (
-                        <p className="flex items-center text-xs text-red-500 gap-1">
-                          <AlertTriangle className="w-3 h-3" /> Complete la información
-                        </p>
-                      )}
                     </div>
 
                     {/* Correo */}
@@ -272,16 +254,11 @@ export function SettingsLegacy({ onLogout }: SettingsProps) {
                         placeholder="+506 8888 8888"
                         disabled={!isEditingProfile}
                       />
-                      {!phone && (
-                        <p className="flex items-center text-xs text-red-500 gap-1">
-                          <AlertTriangle className="w-3 h-3" /> Complete la información
-                        </p>
-                      )}
                     </div>
 
                     {/* Fecha nacimiento */}
                     <div className="space-y-2">
-                     <Label htmlFor="birthDate">Fecha de Nacimiento</Label>
+                      <Label htmlFor="birthDate">Fecha de Nacimiento</Label>
                       <Input
                         id="birthDate"
                         type="date"
@@ -313,28 +290,6 @@ export function SettingsLegacy({ onLogout }: SettingsProps) {
                           </SelectItem>
                         </SelectContent>
                       </Select>
-                      {!gender && (
-                        <p className="flex items-center text-xs text-red-500 gap-1">
-                          <AlertTriangle className="w-3 h-3" /> Complete la información
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Dirección */}
-                    <div className="space-y-2">
-                      <Label htmlFor="address">Dirección</Label>
-                      <Input
-                        id="address"
-                        value={address}
-                        onChange={(e) => setAddress(e.target.value)}
-                        placeholder="Calle Principal 123, Ciudad, País"
-                        disabled={!isEditingProfile}
-                      />
-                      {!address && (
-                        <p className="flex items-center text-xs text-red-500 gap-1">
-                          <AlertTriangle className="w-3 h-3" /> Complete la información
-                        </p>
-                      )}
                     </div>
                   </div>
                 )}
@@ -352,7 +307,7 @@ export function SettingsLegacy({ onLogout }: SettingsProps) {
               </CardContent>
             </Card>
 
-            {/* Seguridad (desplegable) */}
+            {/* Seguridad */}
             <Card>
               <CardHeader
                 onClick={() => setShowChangePassword(!showChangePassword)}
@@ -416,131 +371,213 @@ export function SettingsLegacy({ onLogout }: SettingsProps) {
             </Card>
           </TabsContent>
 
-          {/* ===== SUSCRIPCIONES ===== */}
-          <TabsContent value="subscriptions" className="space-y-6">
+          {/* ===== PERFIL PROFESIONAL ===== */}
+          <TabsContent value="professional" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CreditCard className="h-5 w-5" />
-                  Mi Suscripción
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Briefcase className="h-5 w-5" />
+                    Información Profesional
+                  </div>
+                  {!isEditingProfessional ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsEditingProfessional(true)}
+                    >
+                      <Pencil className="h-4 w-4 mr-2" />
+                      Editar
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCancelEditProfessional}
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Cancelar
+                    </Button>
+                  )}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="p-4 bg-accent rounded-lg">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h3 className="text-xl font-bold text-primary">Plan Actual</h3>
-                      <p className="text-sm text-muted-foreground">Plan Gratuito</p>
-                    </div>
-                    <Badge className="bg-green-100 text-green-800">Activo</Badge>
+
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Número de Licencia */}
+                  <div className="space-y-2">
+                    <Label htmlFor="licenseNumber" className="flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      Número de Licencia Médica
+                    </Label>
+                    <Input
+                      id="licenseNumber"
+                      value={licenseNumber}
+                      onChange={(e) => setLicenseNumber(e.target.value)}
+                      placeholder="MED-12345"
+                      disabled={!isEditingProfessional}
+                    />
                   </div>
-                  <div className="space-y-2 text-sm">
-                    <p className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Citas mensuales:</span>
-                      <span className="font-medium">2 de 2 usadas</span>
-                    </p>
-                    <p className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Próxima renovación:</span>
-                      <span className="font-medium">1 de diciembre, 2025</span>
-                    </p>
-                    <p className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Precio:</span>
-                      <span className="font-medium text-lg">$0.00</span>
+
+                  {/* Años de Experiencia */}
+                  <div className="space-y-2">
+                    <Label htmlFor="yearsExperience" className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      Años de Experiencia
+                    </Label>
+                    <Input
+                      id="yearsExperience"
+                      type="number"
+                      value={yearsExperience}
+                      onChange={(e) => setYearsExperience(e.target.value)}
+                      placeholder="10"
+                      disabled={!isEditingProfessional}
+                    />
+                  </div>
+
+                  {/* Escuela de Medicina */}
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="medicalSchool" className="flex items-center gap-2">
+                      <GraduationCap className="h-4 w-4" />
+                      Escuela de Medicina
+                    </Label>
+                    <Input
+                      id="medicalSchool"
+                      value={medicalSchool}
+                      onChange={(e) => setMedicalSchool(e.target.value)}
+                      placeholder="Universidad de Costa Rica"
+                      disabled={!isEditingProfessional}
+                    />
+                  </div>
+
+                  {/* Especialidades */}
+                  <div className="space-y-2 md:col-span-2">
+                    <Label className="flex items-center gap-2">
+                      <Stethoscope className="h-4 w-4" />
+                      Especialidades
+                    </Label>
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {specialties.map((specialty, index) => (
+                        <Badge key={index} variant="secondary">
+                          {specialty}
+                          {isEditingProfessional && (
+                            <button
+                              onClick={() =>
+                                setSpecialties(specialties.filter((_, i) => i !== index))
+                              }
+                              className="ml-2 hover:text-destructive"
+                            >
+                              ×
+                            </button>
+                          )}
+                        </Badge>
+                      ))}
+                      {specialties.length === 0 && (
+                        <p className="text-sm text-muted-foreground">
+                          No hay especialidades agregadas
+                        </p>
+                      )}
+                    </div>
+                    {isEditingProfessional && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          // Aquí iría un modal o dropdown para agregar especialidades
+                          const newSpecialty = prompt("Ingrese la especialidad:");
+                          if (newSpecialty) {
+                            setSpecialties([...specialties, newSpecialty]);
+                          }
+                        }}
+                      >
+                        Agregar Especialidad
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Biografía */}
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="bio">Biografía Profesional</Label>
+                    <Textarea
+                      id="bio"
+                      value={bio}
+                      onChange={(e) => setBio(e.target.value)}
+                      placeholder="Describe tu experiencia, áreas de interés, y enfoque en la atención médica..."
+                      rows={6}
+                      disabled={!isEditingProfessional}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Esta información será visible para los pacientes
                     </p>
                   </div>
                 </div>
 
-                <div className="pt-4">
-                  <h4 className="font-semibold mb-3">Actualizar Plan</h4>
-                  <div className="grid gap-4">
-                    {/* Plan Básico */}
-                    <div className="border rounded-lg p-4 hover:border-primary transition-colors cursor-pointer">
-                      <div className="flex items-center justify-between mb-2">
-                        <h5 className="font-semibold text-lg">Plan Básico</h5>
-                        <Badge variant="outline">Popular</Badge>
-                      </div>
-                      <p className="text-2xl font-bold text-primary mb-2">$9.99<span className="text-sm font-normal text-muted-foreground">/mes</span></p>
-                      <ul className="space-y-2 text-sm text-muted-foreground mb-4">
-                        <li>✓ 5 citas mensuales</li>
-                        <li>✓ Mensajería con médicos</li>
-                        <li>✓ Soporte por email</li>
-                      </ul>
-                      <Button className="w-full">Seleccionar Plan</Button>
-                    </div>
+                {isEditingProfessional && (
+                  <Button
+                    className="w-full sm:w-auto"
+                    onClick={handleSaveProfessional}
+                    disabled={saving}
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    {saving ? "Guardando..." : "Guardar Cambios"}
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
 
-                    {/* Plan Premium */}
-                    <div className="border-2 border-primary rounded-lg p-4 hover:shadow-lg transition-shadow cursor-pointer">
-                      <div className="flex items-center justify-between mb-2">
-                        <h5 className="font-semibold text-lg">Plan Premium</h5>
-                        <Badge className="bg-primary text-white">Recomendado</Badge>
+            {/* Estado de Verificación */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Estado de Verificación
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 bg-green-100 rounded-full flex items-center justify-center">
+                        <Badge className="h-6 w-6 bg-green-600" />
                       </div>
-                      <p className="text-2xl font-bold text-primary mb-2">$19.99<span className="text-sm font-normal text-muted-foreground">/mes</span></p>
-                      <ul className="space-y-2 text-sm text-muted-foreground mb-4">
-                        <li>✓ Citas ilimitadas</li>
-                        <li>✓ Mensajería con médicos</li>
-                        <li>✓ Videollamadas HD</li>
-                        <li>✓ Soporte prioritario 24/7</li>
-                        <li>✓ Recordatorios automáticos</li>
-                      </ul>
-                      <Button className="w-full">Seleccionar Plan</Button>
+                      <div>
+                        <p className="font-medium text-green-900">Verificación Aprobada</p>
+                        <p className="text-sm text-green-700">
+                          Tu perfil profesional ha sido verificado
+                        </p>
+                      </div>
                     </div>
+                    <Badge className="bg-green-600">Verificado</Badge>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    <p>
+                      Tu licencia médica y credenciales han sido verificadas por nuestro equipo.
+                      Si necesitas actualizar algún documento, contacta con soporte.
+                    </p>
                   </div>
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
 
-            {/* Métodos de Pago */}
+          {/* ===== DISPONIBILIDAD ===== */}
+          <TabsContent value="availability" className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <CreditCard className="h-5 w-5" />
-                  Métodos de Pago
+                  <Clock className="h-5 w-5" />
+                  Horarios de Atención
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {paymentMethods.map((method) => (
-                  <div
-                    key={method.id}
-                    className="flex items-center justify-between p-3 border rounded-lg"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-primary/10 rounded">
-                        <CreditCard className="h-4 w-4" />
-                      </div>
-                      <div>
-                        {method.type === "card" ? (
-                          <>
-                            <p className="font-medium">
-                              {method.brand} •••• {method.last4}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              Expira {method.expiry}
-                            </p>
-                          </>
-                        ) : (
-                          <>
-                            <p className="font-medium">PayPal</p>
-                            <p className="text-sm text-muted-foreground">
-                              {method.email}
-                            </p>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {method.isDefault && <Badge>Predeterminado</Badge>}
-                      <Button variant="outline" size="sm">
-                        Editar
-                      </Button>
-                      <Button variant="outline" size="sm">
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-                <Button variant="outline" className="w-full">
-                  Agregar Método de Pago
-                </Button>
+              <CardContent>
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Configura tu disponibilidad para recibir citas de pacientes.
+                  </p>
+                  <Button onClick={() => navigate("/availability")}>
+                    Gestionar Disponibilidad
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

@@ -1,37 +1,3 @@
-import { useAuth } from "../contexts/AuthContext";
-import { useMe } from "../hooks/useUsers";
-import { PatientSettings } from "./PatientSettings";
-import { DoctorSettings } from "./DoctorSettings";
-
-interface SettingsProps {
-  onLogout: () => void;
-}
-
-export function Settings({ onLogout }: SettingsProps) {
-  const { user } = useAuth();
-  const { data: me, isLoading } = useMe();
-
-  // Mientras carga, mostrar un loader simple
-  if (isLoading || !me) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">Cargando configuración...</p>
-      </div>
-    );
-  }
-
-  // Determinar qué componente mostrar según el rol
-  const userRole = user?.role || me?.role;
-
-  if (userRole === "DOCTOR") {
-    return <DoctorSettings onLogout={onLogout} />;
-  }
-
-  // Por defecto, mostrar configuración de paciente
-  return <PatientSettings onLogout={onLogout} />;
-}
-
-// Legacy imports for deprecated component below
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -48,7 +14,12 @@ import {
 } from "./ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Avatar, AvatarFallback } from "./ui/avatar";
-import { updateMe } from "../services/users";
+import { useAuth } from "../contexts/AuthContext";
+
+import { useMe } from "../hooks/useUsers";
+import { updateMe, changePassword } from "../services/users";
+import { COUNTRIES, getCountryById } from "../constants/countries";
+
 import {
   User as UserIcon,
   CreditCard,
@@ -57,17 +28,20 @@ import {
   Camera,
   Save,
   LogOut,
-  Trash2,
   Key,
   ChevronDown,
   ChevronUp,
   AlertTriangle,
   Pencil,
   X,
+  Check,
 } from "lucide-react";
 
-// Componente legacy mantenido por si acaso (deprecated - usar PatientSettings o DoctorSettings)
-export function SettingsLegacy({ onLogout }: SettingsProps) {
+interface PatientSettingsProps {
+  onLogout: () => void;
+}
+
+export function PatientSettings({ onLogout }: PatientSettingsProps) {
   const navigate = useNavigate();
   const { getDashboardRoute } = useAuth();
 
@@ -78,61 +52,69 @@ export function SettingsLegacy({ onLogout }: SettingsProps) {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
 
   // Campos editables
-  const [fullName, setFullName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName1, setLastName1] = useState("");
+  const [lastName2, setLastName2] = useState("");
   const [phone, setPhone] = useState("");
   const [gender, setGender] = useState<"male" | "female" | "other" | "undisclosed">("undisclosed");
-  const [address, setAddress] = useState("");
+  const [identification, setIdentification] = useState("");
+  const [nationality, setNationality] = useState("");
+  const [residenceCountry, setResidenceCountry] = useState("");
+  const [primaryLanguage, setPrimaryLanguage] = useState("");
+  const [timezone, setTimezone] = useState("");
 
   // Seguridad
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
 
-  const paymentMethods = [
-    {
-      id: 1,
-      type: "card" as const,
-      last4: "1234",
-      brand: "Visa",
-      expiry: "12/26",
-      isDefault: true,
-    },
-    {
-      id: 2,
-      type: "paypal" as const,
-      email: "juan@email.com",
-      isDefault: false,
-    },
-  ];
+  // Campos de cambio de contraseña
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
 
   // Prellenar con el perfil
   useEffect(() => {
     if (!me) return;
     setPhone(me.phone ?? "");
 
-    // Prefiere FullName; si no existe, compón con first/last
-    const composed =
-      me.fullName ??
-      [me.firstName1, me.lastName1, me.lastName2].filter(Boolean).join(" ");
-    setFullName(composed ?? "");
+    // Separar en tres campos de nombre
+    setFirstName(me.firstName1 ?? "");
+    setLastName1(me.lastName1 ?? "");
+    setLastName2(me.lastName2 ?? "");
 
     const g = (me.gender?.toLowerCase?.() as any) || "undisclosed";
     setGender(["male", "female", "other", "undisclosed"].includes(g) ? (g as any) : "undisclosed");
 
-     const d = me?.dateOfBirth ? String(me.dateOfBirth).slice(0, 10) : "";
+    const d = me?.dateOfBirth ? String(me.dateOfBirth).slice(0, 10) : "";
     setBirthDate(d);
 
-    // Si en tu API luego agregas address, aquí podrías setearlo.
-    // setAddress((me as any)?.address ?? "");
+    // Campos adicionales del paciente
+    setIdentification((me as any)?.identification ?? "");
+    setNationality((me as any)?.nationalityId ?? "");
+    setResidenceCountry((me as any)?.residenceCountryId ?? "");
+    setPrimaryLanguage((me as any)?.primaryLanguage ?? "");
+    setTimezone((me as any)?.timezone ?? "");
   }, [me]);
 
   async function handleSaveProfile() {
     try {
       setSaving(true);
-      // Tu servicio tipa solo { fullName?, phone? }. No enviamos gender/address para evitar TS2353.
       await updateMe({
-        fullName: fullName || undefined,
+        firstName1: firstName || undefined,
+        lastName1: lastName1 || undefined,
+        lastName2: lastName2 || undefined,
         phone: phone || undefined,
+        gender: gender || undefined,
+        dateOfBirth: birthDate || undefined,
+        identification: identification || undefined,
+        nationalityId: nationality || undefined,
+        residenceCountryId: residenceCountry || undefined,
+        primaryLanguage: primaryLanguage || undefined,
+        timezone: timezone || undefined,
       });
       setIsEditingProfile(false);
     } catch (e) {
@@ -143,22 +125,69 @@ export function SettingsLegacy({ onLogout }: SettingsProps) {
   }
 
   function handleCancelEdit() {
-    // Restaurar valores originales del perfil
     if (me) {
       setPhone(me.phone ?? "");
-      const composed =
-        me.fullName ??
-        [me.firstName1, me.lastName1, me.lastName2].filter(Boolean).join(" ");
-      setFullName(composed ?? "");
+
+      // Restaurar los tres campos de nombre
+      setFirstName(me.firstName1 ?? "");
+      setLastName1(me.lastName1 ?? "");
+      setLastName2(me.lastName2 ?? "");
+
       const g = (me.gender?.toLowerCase?.() as any) || "undisclosed";
       setGender(["male", "female", "other", "undisclosed"].includes(g) ? (g as any) : "undisclosed");
       const d = me?.dateOfBirth ? String(me.dateOfBirth).slice(0, 10) : "";
       setBirthDate(d);
+
+      // Restaurar campos adicionales
+      setIdentification((me as any)?.identification ?? "");
+      setNationality((me as any)?.nationalityId ?? "");
+      setResidenceCountry((me as any)?.residenceCountryId ?? "");
+      setPrimaryLanguage((me as any)?.primaryLanguage ?? "");
+      setTimezone((me as any)?.timezone ?? "");
     }
     setIsEditingProfile(false);
   }
 
-  // helper para iniciales del avatar
+  async function handleChangePassword() {
+    // Limpiar errores previos
+    setPasswordError("");
+
+    // Validaciones
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordError("Por favor completa todos los campos");
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setPasswordError("La nueva contraseña debe tener al menos 8 caracteres");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError("Las contraseñas no coinciden");
+      return;
+    }
+
+    try {
+      setChangingPassword(true);
+
+      // Llamar al servicio para cambiar la contraseña
+      await changePassword(currentPassword, newPassword);
+
+      // Limpiar campos
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setShowChangePassword(false);
+
+      alert("Contraseña actualizada exitosamente");
+    } catch (error: any) {
+      setPasswordError(error.response?.data?.message || error.message || "Error al cambiar la contraseña");
+    } finally {
+      setChangingPassword(false);
+    }
+  }
+
   const avatarInitial =
     (me?.fullName?.[0] ??
       me?.firstName1?.[0] ??
@@ -239,21 +268,50 @@ export function SettingsLegacy({ onLogout }: SettingsProps) {
                   <div className="text-sm text-red-600">No se pudo cargar tu perfil.</div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Nombre completo */}
-                    <div className="space-y-2 md:col-span-2">
-                      <Label htmlFor="fullName">Nombre completo</Label>
+                    {/* Nombre */}
+                    <div className="space-y-2">
+                      <Label htmlFor="firstName">Nombre</Label>
                       <Input
-                        id="fullName"
-                        value={fullName}
-                        onChange={(e) => setFullName(e.target.value)}
-                        placeholder="Tu nombre completo"
+                        id="firstName"
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        placeholder="Tu nombre"
                         disabled={!isEditingProfile}
                       />
-                      {!fullName && (
+                      {!firstName && (
                         <p className="flex items-center text-xs text-red-500 gap-1">
                           <AlertTriangle className="w-3 h-3" /> Complete la información
                         </p>
                       )}
+                    </div>
+
+                    {/* Primer Apellido */}
+                    <div className="space-y-2">
+                      <Label htmlFor="lastName1">Primer Apellido</Label>
+                      <Input
+                        id="lastName1"
+                        value={lastName1}
+                        onChange={(e) => setLastName1(e.target.value)}
+                        placeholder="Primer apellido"
+                        disabled={!isEditingProfile}
+                      />
+                      {!lastName1 && (
+                        <p className="flex items-center text-xs text-red-500 gap-1">
+                          <AlertTriangle className="w-3 h-3" /> Complete la información
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Segundo Apellido */}
+                    <div className="space-y-2">
+                      <Label htmlFor="lastName2">Segundo Apellido</Label>
+                      <Input
+                        id="lastName2"
+                        value={lastName2}
+                        onChange={(e) => setLastName2(e.target.value)}
+                        placeholder="Segundo apellido (opcional)"
+                        disabled={!isEditingProfile}
+                      />
                     </div>
 
                     {/* Correo */}
@@ -281,7 +339,7 @@ export function SettingsLegacy({ onLogout }: SettingsProps) {
 
                     {/* Fecha nacimiento */}
                     <div className="space-y-2">
-                     <Label htmlFor="birthDate">Fecha de Nacimiento</Label>
+                      <Label htmlFor="birthDate">Fecha de Nacimiento</Label>
                       <Input
                         id="birthDate"
                         type="date"
@@ -313,28 +371,105 @@ export function SettingsLegacy({ onLogout }: SettingsProps) {
                           </SelectItem>
                         </SelectContent>
                       </Select>
-                      {!gender && (
-                        <p className="flex items-center text-xs text-red-500 gap-1">
-                          <AlertTriangle className="w-3 h-3" /> Complete la información
-                        </p>
-                      )}
                     </div>
 
-                    {/* Dirección */}
+                    {/* Identificación */}
                     <div className="space-y-2">
-                      <Label htmlFor="address">Dirección</Label>
+                      <Label htmlFor="identification">Número de Identificación</Label>
                       <Input
-                        id="address"
-                        value={address}
-                        onChange={(e) => setAddress(e.target.value)}
-                        placeholder="Calle Principal 123, Ciudad, País"
+                        id="identification"
+                        value={identification}
+                        onChange={(e) => setIdentification(e.target.value)}
+                        placeholder="504470462"
                         disabled={!isEditingProfile}
                       />
-                      {!address && (
-                        <p className="flex items-center text-xs text-red-500 gap-1">
-                          <AlertTriangle className="w-3 h-3" /> Complete la información
-                        </p>
-                      )}
+                    </div>
+
+                    {/* Nacionalidad */}
+                    <div className="space-y-2">
+                      <Label htmlFor="nationality">Nacionalidad</Label>
+                      <Select
+                        value={nationality}
+                        onValueChange={(val: string) => setNationality(val)}
+                        disabled={!isEditingProfile}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona tu nacionalidad">
+                            {nationality ? getCountryById(nationality) : "Selecciona tu nacionalidad"}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {COUNTRIES.map((country) => (
+                            <SelectItem key={country.id} value={country.id}>
+                              {country.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* País de Residencia */}
+                    <div className="space-y-2">
+                      <Label htmlFor="residenceCountry">País de Residencia</Label>
+                      <Select
+                        value={residenceCountry}
+                        onValueChange={(val: string) => setResidenceCountry(val)}
+                        disabled={!isEditingProfile}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona tu país de residencia">
+                            {residenceCountry ? getCountryById(residenceCountry) : "Selecciona tu país de residencia"}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {COUNTRIES.map((country) => (
+                            <SelectItem key={country.id} value={country.id}>
+                              {country.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Idioma Primario */}
+                    <div className="space-y-2">
+                      <Label htmlFor="primaryLanguage">Idioma Primario</Label>
+                      <Select
+                        value={primaryLanguage}
+                        onValueChange={(val: string) => setPrimaryLanguage(val)}
+                        disabled={!isEditingProfile}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona un idioma" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="es">Español</SelectItem>
+                          <SelectItem value="en">Inglés</SelectItem>
+                          <SelectItem value="fr">Francés</SelectItem>
+                          <SelectItem value="pt">Portugués</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Zona Horaria */}
+                    <div className="space-y-2">
+                      <Label htmlFor="timezone">Zona Horaria</Label>
+                      <Select
+                        value={timezone}
+                        onValueChange={(val: string) => setTimezone(val)}
+                        disabled={!isEditingProfile}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona zona horaria" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="America/Costa_Rica">América/Costa Rica (UTC-6)</SelectItem>
+                          <SelectItem value="America/Mexico_City">América/Ciudad de México (UTC-6)</SelectItem>
+                          <SelectItem value="America/New_York">América/Nueva York (UTC-5)</SelectItem>
+                          <SelectItem value="America/Los_Angeles">América/Los Ángeles (UTC-8)</SelectItem>
+                          <SelectItem value="Europe/Madrid">Europa/Madrid (UTC+1)</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 )}
@@ -352,7 +487,72 @@ export function SettingsLegacy({ onLogout }: SettingsProps) {
               </CardContent>
             </Card>
 
-            {/* Seguridad (desplegable) */}
+            {/* Información de Cuenta */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <UserIcon className="h-5 w-5" />
+                  Información de Cuenta
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Estado de la Cuenta */}
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground">Estado de la Cuenta</Label>
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-green-100 text-green-800">
+                        {(me as any)?.status === "active" ? "Activa" : "Inactiva"}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {/* Tipo de Usuario */}
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground">Tipo de Usuario</Label>
+                    <p className="text-sm font-medium">{me?.role === "PATIENT" ? "Paciente" : me?.role}</p>
+                  </div>
+
+                  {/* Fecha de Registro */}
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground">Miembro desde</Label>
+                    <p className="text-sm font-medium">
+                      {me?.createdAt
+                        ? new Date(me.createdAt).toLocaleDateString("es-ES", {
+                            day: "numeric",
+                            month: "long",
+                            year: "numeric",
+                          })
+                        : "N/A"}
+                    </p>
+                  </div>
+
+                  {/* Última Actualización */}
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground">Última Actualización</Label>
+                    <p className="text-sm font-medium">
+                      {me?.updatedAt
+                        ? new Date(me.updatedAt).toLocaleDateString("es-ES", {
+                            day: "numeric",
+                            month: "long",
+                            year: "numeric",
+                          })
+                        : "N/A"}
+                    </p>
+                  </div>
+
+                  {/* ID de Usuario */}
+                  {/* <div className="space-y-1 md:col-span-2">
+                    <Label className="text-muted-foreground">ID de Usuario</Label>
+                    <p className="text-sm font-mono bg-muted px-2 py-1 rounded">
+                      {me?.id || "N/A"}
+                    </p>
+                  </div> */}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Seguridad */}
             <Card>
               <CardHeader
                 onClick={() => setShowChangePassword(!showChangePassword)}
@@ -368,6 +568,15 @@ export function SettingsLegacy({ onLogout }: SettingsProps) {
               </CardHeader>
               {showChangePassword && (
                 <CardContent className="space-y-4">
+                  {passwordError && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                      <p className="text-sm text-red-600 flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4" />
+                        {passwordError}
+                      </p>
+                    </div>
+                  )}
+
                   <div className="space-y-2">
                     <Label htmlFor="currentPassword">Contraseña Actual</Label>
                     <div className="relative">
@@ -375,6 +584,8 @@ export function SettingsLegacy({ onLogout }: SettingsProps) {
                         id="currentPassword"
                         type={showCurrentPassword ? "text" : "password"}
                         placeholder="••••••••"
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
                       />
                       <Button
                         type="button"
@@ -387,6 +598,7 @@ export function SettingsLegacy({ onLogout }: SettingsProps) {
                       </Button>
                     </div>
                   </div>
+
                   <div className="space-y-2">
                     <Label htmlFor="newPassword">Nueva Contraseña</Label>
                     <div className="relative">
@@ -394,6 +606,8 @@ export function SettingsLegacy({ onLogout }: SettingsProps) {
                         id="newPassword"
                         type={showNewPassword ? "text" : "password"}
                         placeholder="••••••••"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
                       />
                       <Button
                         type="button"
@@ -405,12 +619,39 @@ export function SettingsLegacy({ onLogout }: SettingsProps) {
                         {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </Button>
                     </div>
+                    <p className="text-xs text-muted-foreground">
+                      Mínimo 8 caracteres
+                    </p>
                   </div>
+
                   <div className="space-y-2">
                     <Label htmlFor="confirmPassword">Confirmar Nueva Contraseña</Label>
-                    <Input id="confirmPassword" type="password" placeholder="••••••••" />
+                    <div className="relative">
+                      <Input
+                        id="confirmPassword"
+                        type={showConfirmPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-2 top-1/2 -translate-y-1/2"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      >
+                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    </div>
                   </div>
-                  <Button>Actualizar Contraseña</Button>
+
+                  <Button
+                    onClick={handleChangePassword}
+                    disabled={changingPassword}
+                  >
+                    {changingPassword ? "Actualizando..." : "Actualizar Contraseña"}
+                  </Button>
                 </CardContent>
               )}
             </Card>
@@ -486,61 +727,6 @@ export function SettingsLegacy({ onLogout }: SettingsProps) {
                     </div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Métodos de Pago */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CreditCard className="h-5 w-5" />
-                  Métodos de Pago
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {paymentMethods.map((method) => (
-                  <div
-                    key={method.id}
-                    className="flex items-center justify-between p-3 border rounded-lg"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-primary/10 rounded">
-                        <CreditCard className="h-4 w-4" />
-                      </div>
-                      <div>
-                        {method.type === "card" ? (
-                          <>
-                            <p className="font-medium">
-                              {method.brand} •••• {method.last4}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              Expira {method.expiry}
-                            </p>
-                          </>
-                        ) : (
-                          <>
-                            <p className="font-medium">PayPal</p>
-                            <p className="text-sm text-muted-foreground">
-                              {method.email}
-                            </p>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {method.isDefault && <Badge>Predeterminado</Badge>}
-                      <Button variant="outline" size="sm">
-                        Editar
-                      </Button>
-                      <Button variant="outline" size="sm">
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-                <Button variant="outline" className="w-full">
-                  Agregar Método de Pago
-                </Button>
               </CardContent>
             </Card>
           </TabsContent>

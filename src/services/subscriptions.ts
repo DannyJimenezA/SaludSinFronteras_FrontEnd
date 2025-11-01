@@ -15,11 +15,11 @@ import type {
 } from "../types/subscriptions";
 
 /** ===== CONSTANTS ===== */
-const PLANS_PATH = "/subscriptions/plans";
+const PLANS_PATH = "/plans";
 const CHECKOUT_PATH = "/subscriptions/checkout";
-const MY_SUBSCRIPTION_PATH = "/subscriptions/my-subscription";
+const MY_SUBSCRIPTION_PATH = "/subscriptions/me";
 const SUBSCRIPTION_HISTORY_PATH = "/subscriptions/history";
-const SUBSCRIPTION_LIMIT_PATH = "/subscriptions/limit";
+const SUBSCRIPTION_LIMIT_PATH = "/subscriptions/appointment-limit";
 const CANCEL_SUBSCRIPTION_PATH = "/subscriptions/cancel";
 
 /** ===== LIST AVAILABLE PLANS ===== */
@@ -165,7 +165,7 @@ export async function cancelSubscription(): Promise<CancelSubscriptionResponse> 
   }
 
   try {
-    const { data } = await api.post<CancelSubscriptionResponse>(CANCEL_SUBSCRIPTION_PATH);
+    const { data } = await api.delete<CancelSubscriptionResponse>(CANCEL_SUBSCRIPTION_PATH);
     return data;
   } catch (err: any) {
     const status = err?.response?.status;
