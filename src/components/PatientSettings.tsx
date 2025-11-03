@@ -19,6 +19,8 @@ import { useAuth } from "../contexts/AuthContext";
 import { useMe } from "../hooks/useUsers";
 import { updateMe, changePassword } from "../services/users";
 import { COUNTRIES, getCountryById } from "../constants/countries";
+import { listPlans, getMySubscription, createSubscription, cancelSubscription as cancelSubscriptionService } from "../services/subscriptions";
+import type { SubscriptionPlan, UserSubscription } from "../types/subscriptions";
 
 import {
   User as UserIcon,
@@ -76,6 +78,12 @@ export function PatientSettings({ onLogout }: PatientSettingsProps) {
   const [changingPassword, setChangingPassword] = useState(false);
   const [passwordError, setPasswordError] = useState("");
 
+  // Suscripciones
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
+  const [currentSubscription, setCurrentSubscription] = useState<UserSubscription | null>(null);
+  const [loadingSubscription, setLoadingSubscription] = useState(true);
+  const [subscribing, setSubscribing] = useState(false);
+
   // Prellenar con el perfil
   useEffect(() => {
     if (!me) return;
@@ -100,10 +108,36 @@ export function PatientSettings({ onLogout }: PatientSettingsProps) {
     setTimezone((me as any)?.timezone ?? "");
   }, [me]);
 
+  // Cargar planes y suscripción actual
+  useEffect(() => {
+    async function loadSubscriptionData() {
+      try {
+        setLoadingSubscription(true);
+        const [plansData, subscriptionData] = await Promise.all([
+          listPlans(),
+          getMySubscription()
+        ]);
+        setPlans(plansData);
+        setCurrentSubscription(subscriptionData);
+      } catch (error) {
+        console.error("Error al cargar datos de suscripción:", error);
+      } finally {
+        setLoadingSubscription(false);
+      }
+    }
+    loadSubscriptionData();
+  }, []);
+
   async function handleSaveProfile() {
     try {
       setSaving(true);
+
+      // Construir el FullName automáticamente
+      const fullNameParts = [firstName, lastName1, lastName2].filter(Boolean);
+      const fullName = fullNameParts.join(" ");
+
       await updateMe({
+        fullName: fullName || undefined,
         firstName1: firstName || undefined,
         lastName1: lastName1 || undefined,
         lastName2: lastName2 || undefined,
@@ -185,6 +219,64 @@ export function PatientSettings({ onLogout }: PatientSettingsProps) {
       setPasswordError(error.response?.data?.message || error.message || "Error al cambiar la contraseña");
     } finally {
       setChangingPassword(false);
+    }
+  }
+
+  async function handleSubscribe(planId: number) {
+    // Si ya tiene una suscripción activa de pago, preguntar si quiere cancelar
+    if (currentSubscription && currentSubscription.plan?.name !== "Basic" && currentSubscription.isActive) {
+      const confirmChange = confirm(
+        `Ya tienes una suscripción activa (${currentSubscription.plan?.name}). Para cambiar de plan, primero debes cancelar tu suscripción actual. ¿Deseas cancelarla ahora?`
+      );
+
+      if (!confirmChange) {
+        return;
+      }
+
+      // Cancelar la suscripción actual primero
+      try {
+        setSubscribing(true);
+        await cancelSubscriptionService();
+      } catch (error: any) {
+        alert(error.message || "No se pudo cancelar la suscripción actual");
+        setSubscribing(false);
+        return;
+      }
+    }
+
+    try {
+      setSubscribing(true);
+      await createSubscription(planId);
+
+      // Recargar suscripción actual
+      const subscriptionData = await getMySubscription();
+      setCurrentSubscription(subscriptionData);
+
+      alert("¡Suscripción exitosa! Tu plan ha sido activado.");
+    } catch (error: any) {
+      alert(error.message || "Error al procesar la suscripción");
+    } finally {
+      setSubscribing(false);
+    }
+  }
+
+  async function handleCancelSubscription() {
+    if (!confirm("¿Estás seguro de que deseas cancelar tu suscripción? Tu plan seguirá activo hasta el final del período de facturación.")) {
+      return;
+    }
+
+    try {
+      setSubscribing(true);
+      const updatedSubscription = await cancelSubscriptionService();
+
+      // Actualizar el estado local con la suscripción actualizada
+      setCurrentSubscription(updatedSubscription);
+
+      alert("Suscripción cancelada. Tu plan seguirá activo hasta la fecha de vencimiento.");
+    } catch (error: any) {
+      alert(error.message || "Error al cancelar la suscripción");
+    } finally {
+      setSubscribing(false);
     }
   }
 
@@ -667,66 +759,133 @@ export function PatientSettings({ onLogout }: PatientSettingsProps) {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="p-4 bg-accent rounded-lg">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h3 className="text-xl font-bold text-primary">Plan Actual</h3>
-                      <p className="text-sm text-muted-foreground">Plan Gratuito</p>
-                    </div>
-                    <Badge className="bg-green-100 text-green-800">Activo</Badge>
-                  </div>
-                  <div className="space-y-2 text-sm">
-                    <p className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Citas mensuales:</span>
-                      <span className="font-medium">2 de 2 usadas</span>
-                    </p>
-                    <p className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Próxima renovación:</span>
-                      <span className="font-medium">1 de diciembre, 2025</span>
-                    </p>
-                    <p className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Precio:</span>
-                      <span className="font-medium text-lg">$0.00</span>
-                    </p>
-                  </div>
-                </div>
+                {loadingSubscription ? (
+                  <div className="text-sm text-muted-foreground">Cargando información de suscripción...</div>
+                ) : (
+                  <>
+                    {/* Suscripción actual */}
+                    {currentSubscription && (
+                      <div className="p-4 bg-accent rounded-lg">
+                        <div className="flex items-center justify-between mb-4">
+                          <div>
+                            <h3 className="text-xl font-bold text-primary">Plan Actual</h3>
+                            <p className="text-sm text-muted-foreground">{currentSubscription.plan?.name || "Plan Gratuito"}</p>
+                          </div>
+                          <Badge className={currentSubscription.isActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}>
+                            {currentSubscription.isActive ? "Activo" : "Inactivo"}
+                          </Badge>
+                        </div>
+                        <div className="space-y-2 text-sm">
+                          <p className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Citas mensuales:</span>
+                            <span className="font-medium">
+                              {currentSubscription.plan?.maxAppointmentsPerMonth === -1
+                                ? "Ilimitadas"
+                                : `${currentSubscription.plan?.maxAppointmentsPerMonth || 0} permitidas`}
+                            </span>
+                          </p>
+                          {currentSubscription.expiresAt && (
+                            <p className="flex items-center justify-between">
+                              <span className="text-muted-foreground">
+                                {currentSubscription.autoRenew ? "Próxima renovación:" : "Expira:"}
+                              </span>
+                              <span className="font-medium">
+                                {new Date(currentSubscription.expiresAt).toLocaleDateString("es-ES", {
+                                  day: "numeric",
+                                  month: "long",
+                                  year: "numeric",
+                                })}
+                              </span>
+                            </p>
+                          )}
+                          <p className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Precio:</span>
+                            <span className="font-medium text-lg">${currentSubscription.plan?.price?.toFixed(2) || "0.00"}</span>
+                          </p>
+                        </div>
 
-                <div className="pt-4">
-                  <h4 className="font-semibold mb-3">Actualizar Plan</h4>
-                  <div className="grid gap-4">
-                    {/* Plan Básico */}
-                    <div className="border rounded-lg p-4 hover:border-primary transition-colors cursor-pointer">
-                      <div className="flex items-center justify-between mb-2">
-                        <h5 className="font-semibold text-lg">Plan Básico</h5>
-                        <Badge variant="outline">Popular</Badge>
+                        {/* Botón de cancelar suscripción */}
+                        {currentSubscription.autoRenew && currentSubscription.plan?.name !== "Basic" && (
+                          <div className="pt-4 mt-4 border-t">
+                            <Button
+                              variant="outline"
+                              className="w-full text-red-600 hover:bg-red-50"
+                              onClick={handleCancelSubscription}
+                              disabled={subscribing}
+                            >
+                              {subscribing ? "Procesando..." : "Cancelar Renovación Automática"}
+                            </Button>
+                          </div>
+                        )}
                       </div>
-                      <p className="text-2xl font-bold text-primary mb-2">$9.99<span className="text-sm font-normal text-muted-foreground">/mes</span></p>
-                      <ul className="space-y-2 text-sm text-muted-foreground mb-4">
-                        <li>✓ 5 citas mensuales</li>
-                        <li>✓ Mensajería con médicos</li>
-                        <li>✓ Soporte por email</li>
-                      </ul>
-                      <Button className="w-full">Seleccionar Plan</Button>
-                    </div>
+                    )}
 
-                    {/* Plan Premium */}
-                    <div className="border-2 border-primary rounded-lg p-4 hover:shadow-lg transition-shadow cursor-pointer">
-                      <div className="flex items-center justify-between mb-2">
-                        <h5 className="font-semibold text-lg">Plan Premium</h5>
-                        <Badge className="bg-primary text-white">Recomendado</Badge>
+                    {/* Planes disponibles */}
+                    <div className="pt-4">
+                      <h4 className="font-semibold mb-3">
+                        {currentSubscription?.plan?.name === "Basic" ? "Actualizar Plan" : "Cambiar Plan"}
+                      </h4>
+                      <div className="grid gap-4">
+                        {plans
+                          .filter(plan => plan.id !== currentSubscription?.plan?.id)
+                          .map((plan) => {
+                            const isPopular = plan.name === "Standard";
+                            const isRecommended = plan.name === "Premium";
+
+                            return (
+                              <div
+                                key={plan.id}
+                                className={`border rounded-lg p-4 hover:border-primary transition-colors ${
+                                  isRecommended ? "border-2 border-primary hover:shadow-lg" : ""
+                                }`}
+                              >
+                                <div className="flex items-center justify-between mb-2">
+                                  <h5 className="font-semibold text-lg">{plan.name}</h5>
+                                  {isPopular && <Badge variant="outline">Popular</Badge>}
+                                  {isRecommended && <Badge className="bg-primary text-white">Recomendado</Badge>}
+                                </div>
+                                <p className="text-2xl font-bold text-primary mb-2">
+                                  ${plan.price.toFixed(2)}
+                                  <span className="text-sm font-normal text-muted-foreground">/mes</span>
+                                </p>
+                                <ul className="space-y-2 text-sm text-muted-foreground mb-4">
+                                  <li>
+                                    ✓ {plan.maxAppointmentsPerMonth === -1
+                                      ? "Citas ilimitadas"
+                                      : `${plan.maxAppointmentsPerMonth} citas mensuales`}
+                                  </li>
+                                  {plan.description && (
+                                    <li>✓ {plan.description}</li>
+                                  )}
+                                  {plan.name === "Standard" && (
+                                    <>
+                                      <li>✓ Mensajería con médicos</li>
+                                      <li>✓ Soporte por email</li>
+                                    </>
+                                  )}
+                                  {plan.name === "Premium" && (
+                                    <>
+                                      <li>✓ Mensajería con médicos</li>
+                                      <li>✓ Videollamadas HD</li>
+                                      <li>✓ Soporte prioritario 24/7</li>
+                                      <li>✓ Recordatorios automáticos</li>
+                                    </>
+                                  )}
+                                </ul>
+                                <Button
+                                  className="w-full"
+                                  onClick={() => handleSubscribe(plan.id)}
+                                  disabled={subscribing || loadingSubscription}
+                                >
+                                  {subscribing ? "Procesando..." : "Seleccionar Plan"}
+                                </Button>
+                              </div>
+                            );
+                          })}
                       </div>
-                      <p className="text-2xl font-bold text-primary mb-2">$19.99<span className="text-sm font-normal text-muted-foreground">/mes</span></p>
-                      <ul className="space-y-2 text-sm text-muted-foreground mb-4">
-                        <li>✓ Citas ilimitadas</li>
-                        <li>✓ Mensajería con médicos</li>
-                        <li>✓ Videollamadas HD</li>
-                        <li>✓ Soporte prioritario 24/7</li>
-                        <li>✓ Recordatorios automáticos</li>
-                      </ul>
-                      <Button className="w-full">Seleccionar Plan</Button>
                     </div>
-                  </div>
-                </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

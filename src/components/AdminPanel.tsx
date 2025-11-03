@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
+import { Label } from "./ui/label";
 import {
   Users,
   UserCheck,
@@ -18,6 +20,8 @@ import {
   Shield,
   Activity,
   Stethoscope,
+  Settings,
+  Filter,
 } from "lucide-react";
 
 import { useAdminMetrics } from "../hooks/useAdmin";
@@ -25,13 +29,33 @@ import { useAdminMetrics } from "../hooks/useAdmin";
 export function AdminPanel() {
   const navigate = useNavigate();
 
+  // Estados para filtro de mes/año
+  const currentDate = new Date();
+  const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth() + 1); // 1-12
+  const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
+
   // ===== Datos REALES desde el endpoint de estadísticas =====
-  const { data: metrics, isLoading: mLoading } = useAdminMetrics();
+  const { data: metrics, isLoading: mLoading } = useAdminMetrics({
+    month: selectedMonth,
+    year: selectedYear,
+  });
 
   // Helper para convertir centavos a dólares/euros formateados
   const formatCurrency = (cents: number) => {
     return `$${(cents / 100).toFixed(2)}`;
   };
+
+  // Helper para obtener el nombre del mes
+  const getMonthName = (month: number) => {
+    const months = [
+      "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+      "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+    ];
+    return months[month - 1];
+  };
+
+  // Generar opciones de años (últimos 5 años + año actual)
+  const yearOptions = Array.from({ length: 6 }, (_, i) => currentDate.getFullYear() - i);
 
   return (
     <div className="min-h-screen bg-background p-4">
@@ -47,12 +71,69 @@ export function AdminPanel() {
               <Shield className="h-4 w-4 mr-2" />
               Verificaciones
             </Button>
-            <Button onClick={() => navigate("/admin/specialties")}>
-              <Stethoscope className="h-4 w-4 mr-2" />
-              Especialidades
+            <Button variant="outline" onClick={() => navigate("/admin/settings")}>
+              <Settings className="h-4 w-4 mr-2" />
+              Configuración
             </Button>
           </div>
         </div>
+
+        {/* Filtro de Período */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Filter className="h-5 w-5 text-primary" />
+                <Label className="font-semibold">Filtrar estadísticas:</Label>
+              </div>
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="month-select" className="text-sm">Mes:</Label>
+                  <select
+                    id="month-select"
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                    className="h-9 px-3 rounded-md border border-input bg-background text-sm"
+                  >
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
+                      <option key={month} value={month}>
+                        {getMonthName(month)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="year-select" className="text-sm">Año:</Label>
+                  <select
+                    id="year-select"
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(Number(e.target.value))}
+                    className="h-9 px-3 rounded-md border border-input bg-background text-sm"
+                  >
+                    {yearOptions.map((year) => (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedMonth(currentDate.getMonth() + 1);
+                    setSelectedYear(currentDate.getFullYear());
+                  }}
+                >
+                  Mes Actual
+                </Button>
+              </div>
+              <div className="ml-auto text-sm text-muted-foreground">
+                Viendo: <strong>{getMonthName(selectedMonth)} {selectedYear}</strong>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Sección de Usuarios */}
         <div>

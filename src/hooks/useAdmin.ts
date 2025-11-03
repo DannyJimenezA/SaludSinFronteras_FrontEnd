@@ -40,11 +40,17 @@ type UserLite = {
 // ─────────────────────────────────────────────────────────────
 // Métricas del dashboard de admin
 // ─────────────────────────────────────────────────────────────
-export function useAdminMetrics() {
+export function useAdminMetrics(params?: { month?: number; year?: number }) {
   return useQuery({
-    queryKey: ["admin", "dashboard", "stats"],
+    queryKey: ["admin", "dashboard", "stats", params?.month, params?.year],
     queryFn: async () => {
-      const { data } = await api.get<AdminDashboardStats>("/admin/dashboard/stats");
+      const queryParams: any = {};
+      if (params?.month !== undefined) queryParams.month = params.month;
+      if (params?.year !== undefined) queryParams.year = params.year;
+
+      const { data } = await api.get<AdminDashboardStats>("/admin/dashboard/stats", {
+        params: queryParams,
+      });
       return data;
     },
     staleTime: 60_000,

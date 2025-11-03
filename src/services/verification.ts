@@ -14,6 +14,7 @@ import type {
   ReviewVerificationPayload,
   PendingDoctorVerification,
   VerificationStatusResponse,
+  VerificationResponseDto,
 } from "../types/verification";
 
 /** ===== CONSTANTS ===== */
@@ -135,13 +136,13 @@ export async function listPendingVerifications(): Promise<PendingDoctorVerificat
 }
 
 /** ===== LIST APPROVED VERIFICATIONS (Admin) ===== */
-export async function listApprovedVerifications(): Promise<PendingDoctorVerification[]> {
+export async function listApprovedVerifications(): Promise<VerificationResponseDto[]> {
   if (import.meta.env.DEV) {
     console.debug("[VERIFICATION] listApprovedVerifications (Admin)");
   }
 
   try {
-    const { data } = await api.get<PendingDoctorVerification[]>(VERIFICATION_APPROVED_PATH);
+    const { data } = await api.get<VerificationResponseDto[]>(VERIFICATION_APPROVED_PATH);
     return Array.isArray(data) ? data : [];
   } catch (err: any) {
     const status = err?.response?.status;
@@ -160,13 +161,13 @@ export async function listApprovedVerifications(): Promise<PendingDoctorVerifica
 }
 
 /** ===== LIST REJECTED VERIFICATIONS (Admin) ===== */
-export async function listRejectedVerifications(): Promise<PendingDoctorVerification[]> {
+export async function listRejectedVerifications(): Promise<VerificationResponseDto[]> {
   if (import.meta.env.DEV) {
     console.debug("[VERIFICATION] listRejectedVerifications (Admin)");
   }
 
   try {
-    const { data } = await api.get<PendingDoctorVerification[]>(VERIFICATION_REJECTED_PATH);
+    const { data } = await api.get<VerificationResponseDto[]>(VERIFICATION_REJECTED_PATH);
     return Array.isArray(data) ? data : [];
   } catch (err: any) {
     const status = err?.response?.status;

@@ -28,7 +28,7 @@ export interface ReviewVerificationPayload {
 }
 
 export interface PendingDoctorVerification {
-  UserId: string;
+  UserId: string | bigint;
   DoctorName: string;
   Email: string;
   LicenseNumber?: string;
@@ -46,4 +46,23 @@ export interface VerificationStatusResponse {
   RejectionReason?: string;
   VerifiedAt?: string;
   VerifiedByAdminId?: string;
+}
+
+// Tipo completo de verificación con información detallada (para approved/rejected)
+export interface VerificationResponseDto {
+  UserId: string | bigint;
+  DoctorName: string;
+  Email: string;
+  LicenseNumber?: string;
+  LicenseCountry?: string;
+  MedicalSchool?: string;
+  YearsExperience?: number;
+  VerificationStatus: VerificationStatus;
+  CertificationDocuments?: string[];
+  VerificationNotes?: string;
+  RejectionReason?: string;
+  VerifiedAt?: string;
+  VerifiedByAdminId?: string | bigint;
+  SubmittedAt: string;
+  UpdatedAt: string;
 }

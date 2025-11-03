@@ -57,6 +57,7 @@ export async function getMe(): Promise<User> {
 
 /** Acepta camelCase y lo mapea a PascalCase que espera tu backend. */
 export async function updateMe(payload: {
+  fullName?: string;
   firstName1?: string;
   lastName1?: string;
   lastName2?: string;
@@ -70,6 +71,7 @@ export async function updateMe(payload: {
   timezone?: string;
 }): Promise<User> {
   const dto: Record<string, any> = {};
+  if (payload.fullName !== undefined) dto.FullName = payload.fullName;
   if (payload.firstName1 !== undefined) dto.FirstName = payload.firstName1;
   if (payload.lastName1 !== undefined) dto.LastName1 = payload.lastName1;
   if (payload.lastName2 !== undefined) dto.LastName2 = payload.lastName2;

@@ -11,6 +11,7 @@ import {
   useApprovedVerifications,
   useRejectedVerifications,
   useReviewVerification,
+  useDoctorVerification,
 } from '../hooks/useVerification';
 import { reviewVerificationSchema, type ReviewVerificationInput } from '../lib/validations';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
@@ -26,7 +27,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from './ui/dialog';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
@@ -41,17 +41,23 @@ import {
   User,
   Mail,
   Building,
+  GraduationCap,
+  Award,
+  Globe,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import type { DoctorVerification } from '../types/verification';
+import type { PendingDoctorVerification, VerificationResponseDto } from '../types/verification';
 
 export function AdminVerificationPanel() {
-  const [selectedVerification, setSelectedVerification] = useState<DoctorVerification | null>(null);
+  const [selectedDoctorId, setSelectedDoctorId] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const { data: pending, isLoading: loadingPending } = usePendingVerifications();
   const { data: approved, isLoading: loadingApproved } = useApprovedVerifications();
   const { data: rejected, isLoading: loadingRejected } = useRejectedVerifications();
+
+  // Fetch full details of selected doctor
+  const { data: selectedVerification } = useDoctorVerification(selectedDoctorId || undefined);
 
   const { mutate: reviewVerification, isPending: isReviewing } = useReviewVerification();
 
@@ -71,11 +77,11 @@ export function AdminVerificationPanel() {
   const action = watch('Action');
 
   const handleReview = (data: ReviewVerificationInput) => {
-    if (!selectedVerification) return;
+    if (!selectedDoctorId) return;
 
     reviewVerification(
       {
-        doctorId: selectedVerification.DoctorUserId.toString(),
+        doctorId: selectedDoctorId,
         payload: {
           Action: data.Action,
           AdminNotes: data.AdminNotes,
@@ -90,7 +96,7 @@ export function AdminVerificationPanel() {
               : 'Verificación rechazada'
           );
           setIsDialogOpen(false);
-          setSelectedVerification(null);
+          setSelectedDoctorId(null);
           reset();
         },
         onError: (error: any) => {
@@ -100,92 +106,156 @@ export function AdminVerificationPanel() {
     );
   };
 
-  const openReviewDialog = (verification: DoctorVerification) => {
-    setSelectedVerification(verification);
+  const openReviewDialog = (userId: string | bigint) => {
+    setSelectedDoctorId(userId.toString());
     setIsDialogOpen(true);
     reset();
   };
 
-  const renderVerificationCard = (verification: DoctorVerification) => (
-    <Card key={verification.VerificationId} className="hover:shadow-md transition-shadow">
+  const renderPendingCard = (verification: PendingDoctorVerification) => (
+    <Card key={String(verification.UserId)} className="hover:shadow-md transition-shadow">
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="space-y-1">
             <CardTitle className="text-lg flex items-center gap-2">
               <User className="h-5 w-5" />
-              {verification.Doctor?.FirstName} {verification.Doctor?.LastName1}
+              {verification.DoctorName}
             </CardTitle>
             <CardDescription className="flex flex-col gap-1">
               <span className="flex items-center gap-1">
                 <Mail className="h-3 w-3" />
-                {verification.Doctor?.Email}
+                {verification.Email}
               </span>
-              {verification.Doctor?.LicenseNumber && (
+              {verification.LicenseNumber && (
                 <span className="flex items-center gap-1">
                   <Building className="h-3 w-3" />
-                  Licencia: {verification.Doctor.LicenseNumber}
+                  Licencia: {verification.LicenseNumber}
+                </span>
+              )}
+            </CardDescription>
+          </div>
+          <Badge variant="secondary">
+            <Clock className="h-3 w-3 mr-1" />
+            Pendiente
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Documents Count */}
+        <div>
+          <Label className="text-sm font-semibold mb-2 block">
+            <FileText className="h-4 w-4 inline mr-1" />
+            Documentos: {verification.DocumentsCount}
+          </Label>
+        </div>
+
+        {/* Dates */}
+        <div className="text-xs text-muted-foreground">
+          <p>Enviado: {new Date(verification.SubmittedAt).toLocaleString('es-CR')}</p>
+        </div>
+
+        {/* Actions */}
+        <Button className="w-full" onClick={() => openReviewDialog(verification.UserId)}>
+          Revisar Verificación
+        </Button>
+      </CardContent>
+    </Card>
+  );
+
+  const renderFullVerificationCard = (verification: VerificationResponseDto) => (
+    <Card key={String(verification.UserId)} className="hover:shadow-md transition-shadow">
+      <CardHeader>
+        <div className="flex items-start justify-between">
+          <div className="space-y-1">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <User className="h-5 w-5" />
+              {verification.DoctorName}
+            </CardTitle>
+            <CardDescription className="flex flex-col gap-1">
+              <span className="flex items-center gap-1">
+                <Mail className="h-3 w-3" />
+                {verification.Email}
+              </span>
+              {verification.LicenseNumber && (
+                <span className="flex items-center gap-1">
+                  <Building className="h-3 w-3" />
+                  Licencia: {verification.LicenseNumber}
+                </span>
+              )}
+              {verification.LicenseCountry && (
+                <span className="flex items-center gap-1">
+                  <Globe className="h-3 w-3" />
+                  País: {verification.LicenseCountry}
                 </span>
               )}
             </CardDescription>
           </div>
           <Badge
             variant={
-              verification.Status === 'approved'
+              verification.VerificationStatus === 'approved'
                 ? 'default'
-                : verification.Status === 'rejected'
+                : verification.VerificationStatus === 'rejected'
                 ? 'destructive'
                 : 'secondary'
             }
           >
-            {verification.Status === 'approved' && <CheckCircle2 className="h-3 w-3 mr-1" />}
-            {verification.Status === 'rejected' && <XCircle className="h-3 w-3 mr-1" />}
-            {verification.Status === 'pending' && <Clock className="h-3 w-3 mr-1" />}
-            {verification.Status === 'approved'
+            {verification.VerificationStatus === 'approved' && <CheckCircle2 className="h-3 w-3 mr-1" />}
+            {verification.VerificationStatus === 'rejected' && <XCircle className="h-3 w-3 mr-1" />}
+            {verification.VerificationStatus === 'pending' && <Clock className="h-3 w-3 mr-1" />}
+            {verification.VerificationStatus === 'approved'
               ? 'Aprobado'
-              : verification.Status === 'rejected'
+              : verification.VerificationStatus === 'rejected'
               ? 'Rechazado'
               : 'Pendiente'}
           </Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Documents */}
-        <div>
-          <Label className="text-sm font-semibold mb-2 block">
-            <FileText className="h-4 w-4 inline mr-1" />
-            Documentos ({verification.CertificationDocuments?.length || 0})
-          </Label>
-          <div className="flex flex-wrap gap-2">
-            {verification.CertificationDocuments?.map((doc, idx) => (
-              <Button
-                key={idx}
-                variant="outline"
-                size="sm"
-                onClick={() => window.open(doc, '_blank')}
-              >
-                <ExternalLink className="h-3 w-3 mr-1" />
-                Documento {idx + 1}
-              </Button>
-            ))}
-          </div>
+        {/* Additional Info */}
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          {verification.MedicalSchool && (
+            <div className="flex items-center gap-2">
+              <GraduationCap className="h-4 w-4 text-muted-foreground" />
+              <span className="text-xs">{verification.MedicalSchool}</span>
+            </div>
+          )}
+          {verification.YearsExperience !== undefined && (
+            <div className="flex items-center gap-2">
+              <Award className="h-4 w-4 text-muted-foreground" />
+              <span className="text-xs">{verification.YearsExperience} años de experiencia</span>
+            </div>
+          )}
         </div>
 
-        {/* Notes */}
-        {verification.Notes && (
+        {/* Documents */}
+        {verification.CertificationDocuments && verification.CertificationDocuments.length > 0 && (
           <div>
-            <Label className="text-sm font-semibold mb-1 block">Notas del Doctor</Label>
-            <p className="text-sm text-muted-foreground bg-muted p-3 rounded-md">
-              {verification.Notes}
-            </p>
+            <Label className="text-sm font-semibold mb-2 block">
+              <FileText className="h-4 w-4 inline mr-1" />
+              Documentos ({verification.CertificationDocuments.length})
+            </Label>
+            <div className="flex flex-wrap gap-2">
+              {verification.CertificationDocuments.map((doc, idx) => (
+                <Button
+                  key={idx}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.open(doc, '_blank')}
+                >
+                  <ExternalLink className="h-3 w-3 mr-1" />
+                  Documento {idx + 1}
+                </Button>
+              ))}
+            </div>
           </div>
         )}
 
-        {/* Admin Notes */}
-        {verification.AdminNotes && (
+        {/* Notes */}
+        {verification.VerificationNotes && (
           <div>
-            <Label className="text-sm font-semibold mb-1 block">Notas del Administrador</Label>
+            <Label className="text-sm font-semibold mb-1 block">Notas del Doctor</Label>
             <p className="text-sm text-muted-foreground bg-muted p-3 rounded-md">
-              {verification.AdminNotes}
+              {verification.VerificationNotes}
             </p>
           </div>
         )}
@@ -204,21 +274,11 @@ export function AdminVerificationPanel() {
         {/* Dates */}
         <div className="text-xs text-muted-foreground space-y-1">
           <p>Enviado: {new Date(verification.SubmittedAt).toLocaleString('es-CR')}</p>
-          {verification.ReviewedAt && (
-            <p>Revisado: {new Date(verification.ReviewedAt).toLocaleString('es-CR')}</p>
+          {verification.VerifiedAt && (
+            <p>Verificado: {new Date(verification.VerifiedAt).toLocaleString('es-CR')}</p>
           )}
+          <p>Actualizado: {new Date(verification.UpdatedAt).toLocaleString('es-CR')}</p>
         </div>
-
-        {/* Actions */}
-        {verification.Status === 'pending' && (
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="w-full" onClick={() => openReviewDialog(verification)}>
-                Revisar Verificación
-              </Button>
-            </DialogTrigger>
-          </Dialog>
-        )}
       </CardContent>
     </Card>
   );
@@ -256,7 +316,7 @@ export function AdminVerificationPanel() {
             </>
           ) : pending && pending.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {pending.map(renderVerificationCard)}
+              {pending.map(renderPendingCard)}
             </div>
           ) : (
             <Card>
@@ -276,7 +336,7 @@ export function AdminVerificationPanel() {
             </>
           ) : approved && approved.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {approved.map(renderVerificationCard)}
+              {approved.map(renderFullVerificationCard)}
             </div>
           ) : (
             <Card>
@@ -296,7 +356,7 @@ export function AdminVerificationPanel() {
             </>
           ) : rejected && rejected.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {rejected.map(renderVerificationCard)}
+              {rejected.map(renderFullVerificationCard)}
             </div>
           ) : (
             <Card>
@@ -316,8 +376,7 @@ export function AdminVerificationPanel() {
             <DialogTitle>Revisar Verificación</DialogTitle>
             <DialogDescription>
               Revisa y aprueba o rechaza la verificación de{' '}
-              {selectedVerification?.Doctor?.FirstName}{' '}
-              {selectedVerification?.Doctor?.LastName1}
+              {selectedVerification?.DoctorName}
             </DialogDescription>
           </DialogHeader>
 
