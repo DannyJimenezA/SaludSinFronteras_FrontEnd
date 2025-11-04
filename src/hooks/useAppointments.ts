@@ -7,8 +7,13 @@ type Appointment = {
   scheduledAt: string;
   durationMin: number;
   status: string;
+  statusName?: string; // Nombre del estado en español desde el backend
   modality: string;
   cancelReason?: string;
+  notes?: string;
+  costCents?: number;
+  appointmentType?: string;
+  videoRoomName?: string | null; // Nombre de la sala de video (null si no existe)
   doctor: {
     id: string;
     name: string;

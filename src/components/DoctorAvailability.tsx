@@ -61,6 +61,13 @@ export function DoctorAvailability() {
     return `${year}-${month}-${day}`;
   };
 
+  // Función para parsear fechas UTC como locales (sin conversión de zona horaria)
+  const parseUTCAsLocal = (dateString: string) => {
+    // Remover la 'Z' para que no se interprete como UTC
+    const withoutZ = dateString.replace('Z', '');
+    return new Date(withoutZ);
+  };
+
   // Estado para el formulario
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [startTime, setStartTime] = useState<string>("");
@@ -140,7 +147,7 @@ export function DoctorAvailability() {
   const filteredSlots = (slots ?? []).filter((slot) => {
     if (!filterDate) return true;
 
-    const slotDate = new Date(slot.StartAt);
+    const slotDate = parseUTCAsLocal(slot.StartAt);
     const filterDateObj = new Date(filterDate + "T00:00:00");
 
     return (
@@ -148,7 +155,7 @@ export function DoctorAvailability() {
       slotDate.getMonth() === filterDateObj.getMonth() &&
       slotDate.getDate() === filterDateObj.getDate()
     );
-  }).sort((a, b) => new Date(a.StartAt).getTime() - new Date(b.StartAt).getTime());
+  }).sort((a, b) => parseUTCAsLocal(a.StartAt).getTime() - parseUTCAsLocal(b.StartAt).getTime());
 
   // Calcular paginación
   const totalPages = Math.ceil(filteredSlots.length / itemsPerPage);
@@ -317,8 +324,8 @@ export function DoctorAvailability() {
                 {/* Grid de slots */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {paginatedSlots.map((slot) => {
-                    const start = new Date(slot.StartAt);
-                    const end = new Date(slot.EndAt);
+                    const start = parseUTCAsLocal(slot.StartAt);
+                    const end = parseUTCAsLocal(slot.EndAt);
                     const durationMins = Math.round((end.getTime() - start.getTime()) / 60000);
 
                     return (

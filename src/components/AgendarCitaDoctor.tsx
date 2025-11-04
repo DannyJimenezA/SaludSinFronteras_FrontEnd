@@ -20,9 +20,16 @@ export function AgendarCitaDoctor() {
   // Hook para crear la cita
   const createAppointment = useCreateAppointment();
 
+  // Función para convertir fecha UTC a fecha local sin cambiar la hora
+  const parseUTCAsLocal = (dateString: string) => {
+    // Remover la 'Z' para que no se interprete como UTC
+    const withoutZ = dateString.replace('Z', '');
+    return new Date(withoutZ);
+  };
+
   // Agrupar slots por fecha
   const slotsByDate = data?.slots.reduce((acc, slot) => {
-    const date = new Date(slot.startAt).toLocaleDateString("es-ES", {
+    const date = parseUTCAsLocal(slot.startAt).toLocaleDateString("es-ES", {
       weekday: "long",
       year: "numeric",
       month: "long",
@@ -146,13 +153,13 @@ export function AgendarCitaDoctor() {
                     <CardContent>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         {slots.map((slot) => {
-                          const startTime = new Date(
+                          const startTime = parseUTCAsLocal(
                             slot.startAt
                           ).toLocaleTimeString("es-ES", {
                             hour: "2-digit",
                             minute: "2-digit",
                           });
-                          const endTime = new Date(
+                          const endTime = parseUTCAsLocal(
                             slot.endAt
                           ).toLocaleTimeString("es-ES", {
                             hour: "2-digit",

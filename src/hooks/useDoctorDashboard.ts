@@ -8,6 +8,13 @@ async function getTodayAppointments() {
   return Array.isArray(data) ? data : [];
 }
 
+// Función para parsear fechas UTC como locales (sin conversión de zona horaria)
+const parseUTCAsLocal = (dateString: string) => {
+  // Remover la 'Z' para que no se interprete como UTC
+  const withoutZ = dateString.replace('Z', '');
+  return new Date(withoutZ);
+};
+
 export function useDoctorDashboard() {
   const prof = useQuery({
     queryKey: ["doctor", "me", "profile"],
@@ -21,15 +28,15 @@ export function useDoctorDashboard() {
     staleTime: 20_000,
   });
 
-  const doctorName = prof.data?.FullName ?? "Doctor/a";
-  const doctorSpecialty = prof.data?.Specialty ?? "—";
+  const doctorName = prof.data?.fullName ?? "Doctor/a";
+  const doctorSpecialty = prof.data?.specialty ?? "—";
 
   const todaysAppointments = (appts.data ?? [])
     .map(a => ({
       id: a.id,
       patient: a.patient?.name || "Paciente",
       patientEmail: a.patient?.email || "",
-      time: new Date(a.scheduledAt).toLocaleTimeString('es-ES', {
+      time: parseUTCAsLocal(a.scheduledAt).toLocaleTimeString('es-ES', {
         hour: "2-digit",
         minute: "2-digit",
         hour12: true

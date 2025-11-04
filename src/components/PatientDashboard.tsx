@@ -178,7 +178,8 @@ export function PatientDashboard({
               <>
                 {upcomingAppointments.map((appointment) => {
                   // Formatear la fecha para mostrar "1 de noviembre de 2025"
-                  const dateObj = new Date(appointment.date);
+                  // Agregar T00:00:00 para que se interprete como hora local, no UTC
+                  const dateObj = new Date(appointment.date + 'T00:00:00');
                   const formattedDate = dateObj.toLocaleDateString('es-ES', {
                     day: 'numeric',
                     month: 'long',
