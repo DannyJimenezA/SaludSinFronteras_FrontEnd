@@ -3,8 +3,9 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
+import { Input } from "./ui/input";
 import { ArrowLeft, Calendar, Clock, Loader2, CheckCircle } from "lucide-react";
-import { useDoctorAvailableSlots } from "../hooks/useDoctors";
+import { useDoctorAvailableSlots, type TimeSlot } from "../hooks/useDoctors";
 import { useCreateAppointment } from "../hooks/useAppointments";
 import { toast } from "sonner";
 
@@ -14,11 +15,16 @@ export function AgendarCitaDoctor() {
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [modality, setModality] = useState<'online' | 'in_person' | 'hybrid'>('online');
 
-  // Obtener slots disponibles para los próximos 30 días
-  const { data, isLoading, error } = useDoctorAvailableSlots(doctorId);
+  // Función para obtener la fecha de hoy en formato YYYY-MM-DD
+  const getTodayDate = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
 
-  // Hook para crear la cita
-  const createAppointment = useCreateAppointment();
+  const [selectedDate, setSelectedDate] = useState<string>(getTodayDate());
 
   // Función para convertir fecha UTC a fecha local sin cambiar la hora
   const parseUTCAsLocal = (dateString: string) => {
@@ -27,8 +33,57 @@ export function AgendarCitaDoctor() {
     return new Date(withoutZ);
   };
 
-  // Agrupar slots por fecha
-  const slotsByDate = data?.slots.reduce((acc, slot) => {
+  // Calcular rango de fechas para el backend (30 días desde hoy)
+  const getDateRange = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const endDate = new Date(today);
+    endDate.setDate(endDate.getDate() + 30);
+
+    return {
+      startDate: today.toISOString().split('T')[0], // YYYY-MM-DD
+      endDate: endDate.toISOString().split('T')[0]
+    };
+  };
+
+  const dateRange = getDateRange();
+
+  // Obtener slots disponibles para la fecha seleccionada
+  const { data, isLoading, error } = useDoctorAvailableSlots(
+    doctorId,
+    dateRange.startDate,
+    dateRange.endDate
+  );
+
+  // Debug: ver qué está devolviendo el backend
+  console.log('AgendarCitaDoctor - Backend response:', {
+    doctor: data?.doctor,
+    slotsCount: data?.slots?.length || 0,
+    slots: data?.slots,
+    selectedDate,
+    dateRange,
+    currentTime: new Date().toISOString(),
+    currentLocalTime: new Date().toLocaleString('es-CR', { timeZone: 'America/Costa_Rica' })
+  });
+
+  // Filtrar slots por fecha seleccionada
+  const filteredSlotsByDate = data?.slots.filter((slot) => {
+    const slotDate = parseUTCAsLocal(slot.startAt);
+    const filterDate = new Date(selectedDate + 'T00:00:00');
+
+    return (
+      slotDate.getFullYear() === filterDate.getFullYear() &&
+      slotDate.getMonth() === filterDate.getMonth() &&
+      slotDate.getDate() === filterDate.getDate()
+    );
+  }) || [];
+
+  // Hook para crear la cita
+  const createAppointment = useCreateAppointment();
+
+  // Agrupar slots filtrados por fecha
+  const slotsByDate = filteredSlotsByDate.reduce((acc, slot) => {
     const date = parseUTCAsLocal(slot.startAt).toLocaleDateString("es-ES", {
       weekday: "long",
       year: "numeric",
@@ -40,7 +95,7 @@ export function AgendarCitaDoctor() {
     }
     acc[date].push(slot);
     return acc;
-  }, {} as Record<string, typeof data.slots>);
+  }, {} as Record<string, TimeSlot[]>);
 
   const handleSlotSelect = (slotId: string) => {
     setSelectedSlot(slotId);
@@ -91,6 +146,31 @@ export function AgendarCitaDoctor() {
           </div>
         </div>
 
+        {/* Filtro por fecha */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row gap-4 items-end">
+              <div className="flex-1">
+                <label className="text-sm font-medium mb-2 block text-foreground">
+                  Filtrar por fecha
+                </label>
+                <Input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  min={getTodayDate()}
+                />
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => setSelectedDate(getTodayDate())}
+              >
+                Hoy
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Contenido */}
         {isLoading ? (
           <Card>
@@ -133,6 +213,27 @@ export function AgendarCitaDoctor() {
                   onClick={() => navigate("/nueva-cita")}
                 >
                   Buscar otro doctor
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : filteredSlotsByDate.length === 0 ? (
+          <Card>
+            <CardContent className="p-12">
+              <div className="text-center">
+                <Calendar className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">
+                  No hay horarios disponibles para la fecha seleccionada
+                </p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Intenta seleccionar otra fecha
+                </p>
+                <Button
+                  className="mt-4"
+                  variant="outline"
+                  onClick={() => setSelectedDate(getTodayDate())}
+                >
+                  Ver hoy
                 </Button>
               </div>
             </CardContent>

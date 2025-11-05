@@ -55,12 +55,14 @@ export function useDoctorAvailableSlots(
     queryKey: ["doctors", doctorId, "available-slots", startDate, endDate],
     queryFn: async () => {
       if (!doctorId) throw new Error("Doctor ID is required");
+
       const response = await api.get(`/doctors/${doctorId}/available-slots`, {
         params: {
           ...(startDate && { startDate }),
           ...(endDate && { endDate }),
         },
       });
+
       return response.data as AvailableSlotsResponse;
     },
     enabled: !!doctorId,

@@ -23,11 +23,9 @@ export function MisCitas() {
   const [expandedAppointmentId, setExpandedAppointmentId] = useState<string | null>(null);
   const limit = 10;
 
-  // Hooks para obtener las citas según el filtro
-  const { data: allResponse, isLoading: allLoading } = useAllAppointments(currentPage, limit, order);
-  const { data: upcomingData, isLoading: upcomingLoading } = useUpcomingAppointments(20);
-  const { data: pastData, isLoading: pastLoading } = usePastAppointments(20);
-  const { data: cancelledData, isLoading: cancelledLoading } = useCancelledAppointments(20);
+  // Traer todas las citas y filtrar en el frontend por hora local
+  const { data: allResponse, isLoading: allLoading } = useAllAppointments(currentPage, 100, order); // Aumentar límite para tener todas las citas
+  const { data: cancelledData, isLoading: cancelledLoading } = useCancelledAppointments(100);
 
   // Hook para cancelar citas
   const cancelAppointment = useCancelAppointment();
@@ -36,12 +34,37 @@ export function MisCitas() {
   const allData = allResponse?.data || [];
   const pagination = allResponse?.pagination;
 
-  // Debug log para ver qué datos llegan
-  useEffect(() => {
-    if (activeFilter === "past" && pastData) {
-      console.log("Past appointments received:", pastData);
-    }
-  }, [activeFilter, pastData]);
+  // Función para parsear fechas UTC como locales (sin conversión de zona horaria)
+  const parseUTCAsLocal = (dateString: string) => {
+    // Remover la 'Z' para que no se interprete como UTC
+    const withoutZ = dateString.replace('Z', '');
+    return new Date(withoutZ);
+  };
+
+  // Función para clasificar citas usando hora local
+  const classifyAppointments = (appointments: any[]) => {
+    const now = new Date();
+    const upcoming: any[] = [];
+    const past: any[] = [];
+
+    appointments.forEach((apt) => {
+      // Saltar citas canceladas
+      if (apt.status === 'CANCELLED') return;
+
+      const scheduledAt = parseUTCAsLocal(apt.scheduledAt);
+
+      if (scheduledAt >= now) {
+        upcoming.push(apt);
+      } else {
+        past.push(apt);
+      }
+    });
+
+    return { upcoming, past };
+  };
+
+  // Clasificar citas
+  const { upcoming: upcomingData, past: pastData } = classifyAppointments(allData);
 
   // Selecciona los datos según el filtro activo
   const getActiveData = () => {
@@ -49,9 +72,9 @@ export function MisCitas() {
       case "all":
         return { data: allData, loading: allLoading };
       case "upcoming":
-        return { data: upcomingData || [], loading: upcomingLoading };
+        return { data: upcomingData, loading: allLoading };
       case "past":
-        return { data: pastData || [], loading: pastLoading };
+        return { data: pastData, loading: allLoading };
       case "cancelled":
         return { data: cancelledData || [], loading: cancelledLoading };
       default:
@@ -71,13 +94,6 @@ export function MisCitas() {
   const toggleOrder = () => {
     setOrder(order === 'desc' ? 'asc' : 'desc');
     setCurrentPage(1);
-  };
-
-  // Función para parsear fechas UTC como locales (sin conversión de zona horaria)
-  const parseUTCAsLocal = (dateString: string) => {
-    // Remover la 'Z' para que no se interprete como UTC
-    const withoutZ = dateString.replace('Z', '');
-    return new Date(withoutZ);
   };
 
   // Función para formatear fecha y hora

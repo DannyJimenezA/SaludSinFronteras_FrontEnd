@@ -25,6 +25,7 @@ interface AvailabilitySlot {
   RRule: string | null;
   CreatedAt: string;
   UpdatedAt: string;
+  IsBooked?: boolean; // Indica si el slot ya tiene una cita agendada
 }
 
 // Obtener disponibilidad del doctor
@@ -123,16 +124,31 @@ export function DoctorAvailability() {
       return;
     }
 
-    // Crear fecha de inicio en UTC
+    // Crear fecha de inicio en hora local
     const startDateTime = new Date(`${selectedDate}T${startTime}:00`);
 
     // Calcular fecha de fin según duración seleccionada
     const endDateTime = new Date(startDateTime);
     endDateTime.setMinutes(endDateTime.getMinutes() + parseInt(duration));
 
-    // Convertir a ISO string UTC
-    const StartAt = startDateTime.toISOString();
-    const EndAt = endDateTime.toISOString();
+    // Convertir a UTC compensando el offset de zona horaria
+    // Para que la hora local se guarde como está en UTC
+    const toUTCWithLocalTime = (date: Date) => {
+      const offsetMinutes = date.getTimezoneOffset();
+      const utcDate = new Date(date.getTime() - (offsetMinutes * 60000));
+      return utcDate.toISOString();
+    };
+
+    const StartAt = toUTCWithLocalTime(startDateTime);
+    const EndAt = toUTCWithLocalTime(endDateTime);
+
+    console.log('Creating slot:', {
+      StartAt,
+      EndAt,
+      selectedDate,
+      startTime,
+      localTime: `${selectedDate}T${startTime}:00`
+    });
 
     createMutation.mutate({ StartAt, EndAt });
   };
@@ -327,9 +343,10 @@ export function DoctorAvailability() {
                     const start = parseUTCAsLocal(slot.StartAt);
                     const end = parseUTCAsLocal(slot.EndAt);
                     const durationMins = Math.round((end.getTime() - start.getTime()) / 60000);
+                    const isBooked = slot.IsBooked || false;
 
                     return (
-                      <Card key={slot.Id} className="border-l-4 border-l-primary">
+                      <Card key={slot.Id} className={`border-l-4 ${isBooked ? 'border-l-blue-500' : 'border-l-green-500'}`}>
                         <CardContent className="p-4">
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
@@ -357,18 +374,33 @@ export function DoctorAvailability() {
                                   })}
                                 </span>
                               </div>
-                              <Badge variant="secondary">
-                                {durationMins} minutos
-                              </Badge>
+                              {/* Badges: duración y estado */}
+                              <div className="flex gap-2 flex-wrap">
+                                <Badge variant="secondary">
+                                  {durationMins} minutos
+                                </Badge>
+                                {isBooked ? (
+                                  <Badge className="bg-blue-600 hover:bg-blue-700">
+                                    Agendada
+                                  </Badge>
+                                ) : (
+                                  <Badge className="bg-green-600 hover:bg-green-700">
+                                    Disponible
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDeleteSlot(slot.Id)}
-                              disabled={deleteMutation.isPending}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
+                            {/* Solo mostrar botón de eliminar si NO está agendada */}
+                            {!isBooked && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDeleteSlot(slot.Id)}
+                                disabled={deleteMutation.isPending}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            )}
                           </div>
                         </CardContent>
                       </Card>
