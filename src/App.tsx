@@ -4,9 +4,13 @@ import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-
 import { User } from "./types/user";
 import { getMe } from "./services/users";
 import { AuthProvider } from "./contexts/AuthContext";
+
+import { LandingPageNew } from "./components/LandingPageNew";
+
 import { Toaster } from "sonner";
 import "@livekit/components-styles";
 import { LandingPage } from "./components/LandingPage";
+
 import { WelcomeLogin } from "./components/WelcomeLogin";
 import { ForgotPassword } from "./components/ForgotPassword";
 import { VerifyEmail } from "./components/VerifyEmail";
@@ -130,7 +134,7 @@ export default function App() {
       <div className="min-h-screen bg-background">
         <Routes>
           {/* Ruta principal - Landing Page */}
-          <Route path="/" element={<LandingPage />} />
+          <Route path="/" element={<LandingPageNew />} />
 
           {/* Ruta pública - Login/Welcome */}
           <Route path="/login" element={<WelcomeLogin onLogin={handleLogin} />} />
