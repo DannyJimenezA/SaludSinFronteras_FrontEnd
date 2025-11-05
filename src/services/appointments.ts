@@ -203,3 +203,151 @@ export async function createAppointment(body: CreateAppointmentPayload) {
   return data;
 }
 
+// ---------- GET APPOINTMENT BY ID ----------
+export async function getAppointment(id: string): Promise<AppointmentApi> {
+  if (import.meta.env.DEV) {
+    console.debug("[APPOINTMENTS] getAppointment →", { id });
+  }
+
+  try {
+    const { data } = await api.get<AppointmentApi>(`/appointments/${id}`);
+    return data;
+  } catch (err: any) {
+    const status = err?.response?.status;
+
+    if (status === 404) {
+      throw new Error("Cita no encontrada");
+    }
+
+    if (status === 403) {
+      throw new Error("No tienes permisos para ver esta cita");
+    }
+
+    const msg =
+      err?.response?.data?.message ??
+      err?.message ??
+      "No se pudo obtener la cita";
+
+    throw new Error(String(msg));
+  }
+}
+
+// ---------- UPDATE APPOINTMENT STATUS ----------
+export async function updateAppointmentStatus(
+  id: string,
+  status: "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED"
+): Promise<AppointmentApi> {
+  if (import.meta.env.DEV) {
+    console.debug("[APPOINTMENTS] updateAppointmentStatus →", { id, status });
+  }
+
+  try {
+    const { data } = await api.patch<AppointmentApi>(
+      `/appointments/${id}/status`,
+      { status }
+    );
+    return data;
+  } catch (err: any) {
+    const status = err?.response?.status;
+
+    if (status === 404) {
+      throw new Error("Cita no encontrada");
+    }
+
+    if (status === 403) {
+      throw new Error("No tienes permisos para actualizar esta cita");
+    }
+
+    if (status === 400) {
+      const msg = err?.response?.data?.message;
+      throw new Error(msg || "Estado de cita inválido");
+    }
+
+    const msg =
+      err?.response?.data?.message ??
+      err?.message ??
+      "No se pudo actualizar el estado de la cita";
+
+    throw new Error(String(msg));
+  }
+}
+
+// ---------- ADD APPOINTMENT NOTE ----------
+export interface AppointmentNote {
+  NoteId: string;
+  AppointmentId: string;
+  DoctorUserId: string;
+  Content: string;
+  CreatedAt: string;
+}
+
+export async function addAppointmentNote(
+  appointmentId: string,
+  content: string
+): Promise<AppointmentNote> {
+  if (import.meta.env.DEV) {
+    console.debug("[APPOINTMENTS] addAppointmentNote →", {
+      appointmentId,
+      contentLength: content.length,
+    });
+  }
+
+  try {
+    const { data } = await api.post<AppointmentNote>(
+      `/appointments/${appointmentId}/notes`,
+      { content }
+    );
+    return data;
+  } catch (err: any) {
+    const status = err?.response?.status;
+
+    if (status === 404) {
+      throw new Error("Cita no encontrada");
+    }
+
+    if (status === 403) {
+      throw new Error("Solo los doctores pueden agregar notas a las citas");
+    }
+
+    if (status === 400) {
+      const msg = err?.response?.data?.message;
+      throw new Error(msg || "Contenido de la nota inválido");
+    }
+
+    const msg =
+      err?.response?.data?.message ??
+      err?.message ??
+      "No se pudo agregar la nota a la cita";
+
+    throw new Error(String(msg));
+  }
+}
+
+// ---------- DELETE APPOINTMENT ----------
+export async function deleteAppointment(id: string): Promise<void> {
+  if (import.meta.env.DEV) {
+    console.debug("[APPOINTMENTS] deleteAppointment →", { id });
+  }
+
+  try {
+    await api.delete(`/appointments/${id}`);
+  } catch (err: any) {
+    const status = err?.response?.status;
+
+    if (status === 404) {
+      throw new Error("Cita no encontrada");
+    }
+
+    if (status === 403) {
+      throw new Error("No tienes permisos para eliminar esta cita");
+    }
+
+    const msg =
+      err?.response?.data?.message ??
+      err?.message ??
+      "No se pudo eliminar la cita";
+
+    throw new Error(String(msg));
+  }
+}
+

@@ -1,15 +1,31 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 
-// Tipos base mínimos (ajusta si luego expones DTOs formales)
-type Appt = {
-  id?: number | string;
-  Id?: number | string;
-  status?: string;
-  Status?: string;
-  scheduledAt?: string;   // ISO
-  ScheduledAt?: string;   // ISO
-};
+// Tipos para las estadísticas del dashboard
+export interface AdminDashboardStats {
+  totalUsers: number;
+  totalDoctors: number;
+  totalPatients: number;
+  totalAdmins: number;
+  verifiedDoctors: number;
+  pendingDoctors: number;
+  rejectedDoctors: number;
+  totalAppointments: number;
+  completedAppointments: number;
+  cancelledAppointments: number;
+  upcomingAppointments: number;
+  totalMedicalRecords: number;
+  medicalRecordsThisMonth: number;
+  activeSubscriptions: number;
+  basicSubscriptions: number;
+  professionalSubscriptions: number;
+  premiumSubscriptions: number;
+  totalRevenueCents: number;
+  revenueThisMonthCents: number;
+  newUsersToday: number;
+  newUsersThisWeek: number;
+  newUsersThisMonth: number;
+}
 
 type UserLite = {
   id: number | string;
@@ -22,40 +38,20 @@ type UserLite = {
 };
 
 // ─────────────────────────────────────────────────────────────
-// Métricas de citas (derivadas de GET /appointments)
+// Métricas del dashboard de admin
 // ─────────────────────────────────────────────────────────────
-export function useAdminMetrics() {
+export function useAdminMetrics(params?: { month?: number; year?: number }) {
   return useQuery({
-    queryKey: ["admin", "metrics"],
+    queryKey: ["admin", "dashboard", "stats", params?.month, params?.year],
     queryFn: async () => {
-      // Si más adelante tienes /admin/metrics, cámbialo aquí
-      const { data } = await api.get<Appt[]>("/appointments");
-      const list = Array.isArray(data) ? data : [];
+      const queryParams: any = {};
+      if (params?.month !== undefined) queryParams.month = params.month;
+      if (params?.year !== undefined) queryParams.year = params.year;
 
-      const totalAppointments = list.length;
-
-      const todayISO = new Date().toISOString().slice(0, 10);
-      let todayConsultations = 0;
-      let completedCount = 0;
-
-      for (const a of list) {
-        const status = String(a.Status ?? a.status ?? "").toUpperCase();
-        const day = String(a.ScheduledAt ?? a.scheduledAt ?? "").slice(0, 10);
-
-        if (day === todayISO) todayConsultations++;
-        if (status === "COMPLETED") completedCount++;
-      }
-
-      const completedPct = totalAppointments
-        ? (completedCount * 100) / totalAppointments
-        : 0;
-
-      return {
-        totalAppointments,
-        todayConsultations,
-        completedPct,
-        monthlyRevenue: 0, // placeholder hasta conectar billing
-      };
+      const { data } = await api.get<AdminDashboardStats>("/admin/dashboard/stats", {
+        params: queryParams,
+      });
+      return data;
     },
     staleTime: 60_000,
   });

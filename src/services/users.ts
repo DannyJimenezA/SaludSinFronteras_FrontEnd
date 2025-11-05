@@ -22,7 +22,7 @@ function mapUserFromApi(u: any): User {
     phonePrefix: u?.phonePrefix ?? u?.PhonePrefix ?? undefined,
 
     fullName: u?.fullName ?? u?.FullName ?? undefined,
-    firstName1: u?.firstName1 ?? u?.FirstName1 ?? undefined,
+    firstName1: u?.firstName1 ?? u?.FirstName ?? undefined,
     lastName1: u?.lastName1 ?? u?.LastName1 ?? undefined,
     lastName2: u?.lastName2 ?? u?.LastName2 ?? undefined,
 
@@ -55,18 +55,45 @@ export async function getMe(): Promise<User> {
   return mapUserFromApi(data);
 }
 
-/** Acepta camelCase y lo mapea a PascalCase que espera tu backend (FullName, Phone, Gender). */
+/** Acepta camelCase y lo mapea a PascalCase que espera tu backend. */
 export async function updateMe(payload: {
   fullName?: string;
+  firstName1?: string;
+  lastName1?: string;
+  lastName2?: string;
   phone?: string;
   gender?: Gender | string;
+  dateOfBirth?: string;
+  identification?: string;
+  nationalityId?: string;
+  residenceCountryId?: string;
+  primaryLanguage?: string;
+  timezone?: string;
 }): Promise<User> {
-  const dto: Record<string, string> = {};
+  const dto: Record<string, any> = {};
   if (payload.fullName !== undefined) dto.FullName = payload.fullName;
+  if (payload.firstName1 !== undefined) dto.FirstName = payload.firstName1;
+  if (payload.lastName1 !== undefined) dto.LastName1 = payload.lastName1;
+  if (payload.lastName2 !== undefined) dto.LastName2 = payload.lastName2;
   if (payload.phone !== undefined) dto.Phone = payload.phone;
   if (payload.gender !== undefined) dto.Gender = String(payload.gender);
+  if (payload.dateOfBirth !== undefined) dto.DateOfBirth = payload.dateOfBirth;
+  if (payload.identification !== undefined) dto.Identification = payload.identification;
+  if (payload.nationalityId !== undefined) dto.NationalityId = payload.nationalityId;
+  if (payload.residenceCountryId !== undefined) dto.ResidenceCountryId = payload.residenceCountryId;
+  if (payload.primaryLanguage !== undefined) dto.PrimaryLanguage = payload.primaryLanguage;
+  if (payload.timezone !== undefined) dto.Timezone = payload.timezone;
 
   const { data } = await api.patch<any>(USERS_ME_PATH, dto);
   if (!data) throw new Error("Respuesta vacía de PATCH /users/me");
   return mapUserFromApi(data);
+}
+
+/** Cambia la contraseña del usuario actual */
+export async function changePassword(currentPassword: string, newPassword: string): Promise<{ message: string }> {
+  const { data } = await api.post<any>("/users/change-password", {
+    currentPassword,
+    newPassword,
+  });
+  return data;
 }
