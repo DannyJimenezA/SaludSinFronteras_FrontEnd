@@ -21,6 +21,13 @@ type DashboardData = {
   recentMessages: RecentMessage[];
 };
 
+// Función para parsear fechas UTC como locales (sin conversión de zona horaria)
+const parseUTCAsLocal = (dateString: string) => {
+  // Remover la 'Z' para que no se interprete como UTC
+  const withoutZ = dateString.replace('Z', '');
+  return new Date(withoutZ);
+};
+
 async function fetchPatientDashboard(): Promise<DashboardData> {
   // 1) Citas próximas del usuario autenticado usando el nuevo endpoint
   const apptsRes = await api.get('/appointments/upcoming', {
@@ -30,19 +37,24 @@ async function fetchPatientDashboard(): Promise<DashboardData> {
 
   // Mapea la respuesta del nuevo endpoint
   const upcoming = apptsRaw.map((a: any): UpcomingAppointment => {
-    const dt = new Date(a.scheduledAt);
+    const dt = parseUTCAsLocal(a.scheduledAt);
     const yyyy = dt.getFullYear();
     const mm = String(dt.getMonth() + 1).padStart(2, '0');
     const dd = String(dt.getDate()).padStart(2, '0');
-    const hh = String(dt.getHours()).padStart(2, '0');
-    const mi = String(dt.getMinutes()).padStart(2, '0');
+
+    // Formatear hora con AM/PM
+    const time = dt.toLocaleTimeString('es-ES', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
 
     return {
       id: Number(a.id),
       doctor: a.doctor?.name || 'Médico',
       specialty: a.doctor?.specialty || 'General',
       date: `${yyyy}-${mm}-${dd}`,
-      time: `${hh}:${mi}`,
+      time: time,
       type: (String(a.modality).toLowerCase() === 'online') ? 'videollamada' : 'presencial',
     };
   });

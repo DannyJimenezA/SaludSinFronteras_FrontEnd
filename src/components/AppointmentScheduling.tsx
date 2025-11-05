@@ -26,6 +26,15 @@ function hhmm(iso: string) {
     : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+// Obtener fecha de hoy en formato YYYY-MM-DD en timezone local
+function getTodayDate() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export function AppointmentScheduling({
   preselectedDoctorId,
   preselectedDateISO,
@@ -36,7 +45,7 @@ export function AppointmentScheduling({
   /* ------------------ Estado UI ------------------ */
   const [doctorId, setDoctorId] = useState<number | "">(preselectedDoctorId ?? "");
   const [dateISO, setDateISO] = useState<string>(
-    preselectedDateISO ?? new Date().toISOString().slice(0, 10)
+    preselectedDateISO ?? getTodayDate()
   ); // YYYY-MM-DD
   const [apptType, setApptType] = useState<ApptType>("videollamada");
 

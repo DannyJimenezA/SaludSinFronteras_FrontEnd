@@ -15,12 +15,44 @@ import type {
 } from "../types/subscriptions";
 
 /** ===== CONSTANTS ===== */
-const PLANS_PATH = "/subscriptions/plans";
+const PLANS_PATH = "/plans";
 const CHECKOUT_PATH = "/subscriptions/checkout";
-const MY_SUBSCRIPTION_PATH = "/subscriptions/my-subscription";
+const MY_SUBSCRIPTION_PATH = "/subscriptions/me";
 const SUBSCRIPTION_HISTORY_PATH = "/subscriptions/history";
-const SUBSCRIPTION_LIMIT_PATH = "/subscriptions/limit";
+const SUBSCRIPTION_LIMIT_PATH = "/subscriptions/appointment-limit";
 const CANCEL_SUBSCRIPTION_PATH = "/subscriptions/cancel";
+
+/** ===== HELPER: Map plan from backend (PascalCase) to frontend (camelCase) ===== */
+function mapPlan(p: any): SubscriptionPlan {
+  return {
+    id: Number(p.Id || p.id),
+    name: p.Name || p.name || "",
+    description: p.Description || p.description,
+    price: p.PriceCents ? p.PriceCents / 100 : (p.price || 0),
+    priceCents: p.PriceCents || p.priceCents,
+    currency: p.Currency || p.currency || "USD",
+    maxAppointmentsPerMonth: p.MaxAppointments ?? p.maxAppointmentsPerMonth ?? 0,
+    features: Array.isArray(p.FeaturesJson) ? p.FeaturesJson : (p.features || []),
+    isActive: p.IsActive ?? p.isActive ?? true,
+    createdAt: p.CreatedAt || p.createdAt,
+  };
+}
+
+/** ===== HELPER: Map subscription from backend (PascalCase) to frontend (camelCase) ===== */
+function mapSubscription(s: any): UserSubscription {
+  return {
+    id: s.Id || s.id,
+    userId: s.UserId || s.userId,
+    planId: s.PlanId || s.planId,
+    startAt: s.StartAt || s.startAt,
+    expiresAt: s.ExpiresAt || s.expiresAt,
+    isActive: s.IsActive ?? s.isActive ?? false,
+    autoRenew: s.AutoRenew ?? s.autoRenew ?? false,
+    createdAt: s.CreatedAt || s.createdAt,
+    updatedAt: s.UpdatedAt || s.updatedAt,
+    plan: s.Plan ? mapPlan(s.Plan) : undefined,
+  };
+}
 
 /** ===== LIST AVAILABLE PLANS ===== */
 export async function listPlans(): Promise<SubscriptionPlan[]> {
@@ -29,8 +61,9 @@ export async function listPlans(): Promise<SubscriptionPlan[]> {
   }
 
   try {
-    const { data } = await api.get<SubscriptionPlan[]>(PLANS_PATH);
-    return Array.isArray(data) ? data : data?.data ?? [];
+    const { data } = await api.get<any[]>(PLANS_PATH);
+    const plans = Array.isArray(data) ? data : data?.data ?? [];
+    return plans.map(mapPlan);
   } catch (err: any) {
     const msg =
       err?.response?.data?.message ??
@@ -43,18 +76,21 @@ export async function listPlans(): Promise<SubscriptionPlan[]> {
 
 /** ===== CREATE SUBSCRIPTION (Checkout/Simulate) ===== */
 export async function createSubscription(
-  payload: CreateSubscriptionPayload
-): Promise<CreateSubscriptionResponse> {
+  planId: number | string
+): Promise<UserSubscription> {
   if (import.meta.env.DEV) {
-    console.debug("[SUBSCRIPTIONS] createSubscription →", {
-      PlanId: payload.PlanId,
-      hasPaymentMethod: !!payload.PaymentMethodId,
-    });
+    console.debug("[SUBSCRIPTIONS] createSubscription →", { planId });
   }
 
   try {
-    const { data } = await api.post<CreateSubscriptionResponse>(CHECKOUT_PATH, payload);
-    return data;
+    // El backend espera PlanId y DurationMonths
+    const payload = {
+      PlanId: Number(planId),
+      DurationMonths: 1, // Por defecto 1 mes
+    };
+
+    const { data } = await api.post<any>(CHECKOUT_PATH, payload);
+    return mapSubscription(data);
   } catch (err: any) {
     const status = err?.response?.status;
 
@@ -71,7 +107,7 @@ export async function createSubscription(
     }
 
     if (status === 409) {
-      throw new Error("Ya tienes una suscripción activa");
+      throw new Error("Ya tienes una suscripción activa. Cancélala primero para cambiar de plan.");
     }
 
     const msg =
@@ -84,20 +120,21 @@ export async function createSubscription(
 }
 
 /** ===== GET MY ACTIVE SUBSCRIPTION ===== */
-export async function getMySubscription(): Promise<UserSubscription | null> {
+export async function getMySubscription(): Promise<UserSubscription> {
   if (import.meta.env.DEV) {
     console.debug("[SUBSCRIPTIONS] getMySubscription");
   }
 
   try {
-    const { data } = await api.get<UserSubscription>(MY_SUBSCRIPTION_PATH);
-    return data;
+    const { data } = await api.get<any>(MY_SUBSCRIPTION_PATH);
+    return mapSubscription(data);
   } catch (err: any) {
     const status = err?.response?.status;
 
     if (status === 404) {
-      // No hay suscripción activa
-      return null;
+      // El backend debería asignar automáticamente el plan Basic
+      // Si llegamos aquí, algo salió mal
+      throw new Error("No se pudo obtener tu suscripción");
     }
 
     const msg =
@@ -159,14 +196,14 @@ export async function checkAppointmentLimit(): Promise<SubscriptionLimit> {
 }
 
 /** ===== CANCEL SUBSCRIPTION ===== */
-export async function cancelSubscription(): Promise<CancelSubscriptionResponse> {
+export async function cancelSubscription(): Promise<UserSubscription> {
   if (import.meta.env.DEV) {
     console.debug("[SUBSCRIPTIONS] cancelSubscription");
   }
 
   try {
-    const { data } = await api.post<CancelSubscriptionResponse>(CANCEL_SUBSCRIPTION_PATH);
-    return data;
+    const { data } = await api.delete<any>(CANCEL_SUBSCRIPTION_PATH);
+    return mapSubscription(data);
   } catch (err: any) {
     const status = err?.response?.status;
 

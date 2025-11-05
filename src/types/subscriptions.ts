@@ -4,31 +4,32 @@
 
 export type PlanInterval = 'MONTHLY' | 'YEARLY';
 
+// Tipo para el plan tal como lo devuelve el backend
 export interface SubscriptionPlan {
-  PlanId: string;
-  Name: string;
-  Description?: string;
-  Price: number;
-  Currency: string;
-  Interval: PlanInterval;
-  AppointmentsPerMonth: number;
-  Features?: string[] | null;
-  IsActive: boolean;
-  CreatedAt: string;
+  id: number;
+  name: string;
+  description?: string;
+  price: number; // Precio en dólares (convertido de centavos)
+  priceCents?: number; // Precio en centavos
+  currency: string;
+  maxAppointmentsPerMonth: number; // -1 = ilimitado
+  features?: string[];
+  isActive: boolean;
+  createdAt?: string;
 }
 
+// Tipo para la suscripción del usuario tal como lo devuelve el backend
 export interface UserSubscription {
-  SubscriptionId: string;
-  UserId: string;
-  PlanId: string;
-  Status: 'ACTIVE' | 'CANCELLED' | 'EXPIRED' | 'PENDING';
-  StartDate: string;
-  EndDate?: string | null;
-  NextBillingDate?: string | null;
-  AppointmentsUsed: number;
-  AppointmentsLimit: number;
-  CreatedAt: string;
-  Plan?: SubscriptionPlan;
+  id: string | number;
+  userId: string | number;
+  planId: string | number;
+  startAt: string;
+  expiresAt?: string | null;
+  isActive: boolean;
+  autoRenew: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  plan?: SubscriptionPlan;
 }
 
 export interface CreateSubscriptionPayload {

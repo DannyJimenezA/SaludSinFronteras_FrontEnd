@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -6,7 +6,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Globe, Mail, Phone, Facebook, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
 // arriba con el resto de imports
 import Swal from 'sweetalert2';
 
@@ -23,7 +23,7 @@ type UiRole = 'patient' | 'doctor' | 'admin';
 
 export function WelcomeLogin({ onLogin }: WelcomeLoginProps) {
   const navigate = useNavigate();
-  const [selectedLanguage, setSelectedLanguage] = useState('es');
+  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   const [userType, setUserType] = useState<'patient' | 'doctor'>('patient');
 
   // Login form
@@ -45,17 +45,6 @@ export function WelcomeLogin({ onLogin }: WelcomeLoginProps) {
   const [regLoading, setRegLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [regErrorMsg, setRegErrorMsg] = useState<string | null>(null);
-
-  const languages = useMemo(
-    () => [
-      { code: 'es', name: 'Español' },
-      { code: 'en', name: 'English' },
-      { code: 'fr', name: 'Français' },
-      { code: 'pt', name: 'Português' },
-      { code: 'de', name: 'Deutsch' },
-    ],
-    []
-  );
 
   const mapRoleToUi = (user: User): UiRole => {
     const r = (user.role || '').toString().toUpperCase();
@@ -133,22 +122,27 @@ const handleLogin = async () => {
       });
     }
 
-    // Auto-login y redirección por rol
-    await login({ email: rEmail.trim(), password: rPassword });
-    const me = await getMe();
-    const uiRole = mapRoleToUi(me);
-
+    // Mostrar alerta de éxito y redirigir al tab de login
     await Swal.fire({
       icon: 'success',
-      title: '¡Cuenta creada!',
-      text: `Bienvenido${me.fullName ? `, ${me.fullName}` : ''}.`,
-      confirmButtonText: 'Continuar',
+      title: '¡Cuenta creada exitosamente!',
+      html: 'Por favor, revisa tu correo electrónico para verificar tu cuenta antes de iniciar sesión.',
+      confirmButtonText: 'Entendido',
       confirmButtonColor: '#0f766e',
-      timer: 3000,
-      timerProgressBar: true,
+      allowOutsideClick: false,
     });
 
-    onLogin(uiRole);
+    // Limpiar formulario de registro
+    setRFirstName('');
+    setRLastName1('');
+    setRLastName2('');
+    setREmail('');
+    setRPassword('');
+    setRPassword2('');
+    setRegErrorMsg(null);
+
+    // Cambiar al tab de login
+    setActiveTab('login');
   } catch (err: any) {
     setRegErrorMsg(
       err?.response?.data?.message ??
@@ -165,37 +159,6 @@ const handleLogin = async () => {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6">
-        {/* Back to Landing Button */}
-        <div className="flex justify-start">
-          <Button
-            variant="outline"
-            onClick={() => navigate('/')}
-            className="flex items-center gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Volver al Inicio
-          </Button>
-        </div>
-
-        {/* Language Selector */}
-        <div className="flex justify-end">
-          <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
-            <SelectTrigger className="w-40 bg-white">
-              <div className="flex items-center gap-2">
-                <Globe className="h-4 w-4" />
-                <SelectValue placeholder="Idioma" />
-              </div>
-            </SelectTrigger>
-            <SelectContent>
-              {languages.map((lang) => (
-                <SelectItem key={lang.code} value={lang.code}>
-                  {lang.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
         {/* Welcome Card */}
         <Card className="bg-white shadow-lg">
           <CardHeader className="text-center">
@@ -209,7 +172,7 @@ const handleLogin = async () => {
           </CardHeader>
 
           <CardContent>
-            <Tabs defaultValue="login" className="space-y-4">
+            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'login' | 'register')} className="space-y-4">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="login">Iniciar Sesión</TabsTrigger>
                 <TabsTrigger value="register">Registrarse</TabsTrigger>
@@ -271,6 +234,14 @@ const handleLogin = async () => {
                     disabled={loading || !email || !password}
                   >
                     {loading ? 'Ingresando...' : 'Iniciar Sesión'}
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => navigate('/')}
+                  >
+                    Cancelar
                   </Button>
 
                   <div className="relative">
@@ -433,6 +404,14 @@ const handleLogin = async () => {
                     }
                   >
                     {regLoading ? 'Creando cuenta...' : 'Crear Cuenta'}
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => navigate('/')}
+                  >
+                    Cancelar
                   </Button>
                 </div>
               </TabsContent>

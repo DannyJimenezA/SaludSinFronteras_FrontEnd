@@ -30,6 +30,7 @@ import { VideoCallRoom } from "./components/VideoCallRoom";
 import { SubscriptionPlans } from "./components/SubscriptionPlans";
 import { ChatWithWebSocket } from "./components/ChatWithWebSocket";
 import { AdminVerificationPanel } from "./components/AdminVerificationPanel";
+import { AdminSettings } from "./components/AdminSettings";
 import { NuevaCita } from "./components/NuevaCita";
 import { Mensajes } from "./components/Mensajes";
 import { MisCitas } from "./components/MisCitas";
@@ -286,7 +287,7 @@ export default function App() {
 
         {/* Panel de administración de verificaciones */}
         <Route
-          path="/admin/verifications"
+          path="/admin/verification"
           element={
             <ProtectedRoute isAllowed={currentUser === "admin"}>
               <AdminVerificationPanel />
@@ -300,6 +301,16 @@ export default function App() {
           element={
             <ProtectedRoute isAllowed={currentUser === "admin"}>
               <AdminSpecialties />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Configuración de administrador */}
+        <Route
+          path="/admin/settings"
+          element={
+            <ProtectedRoute isAllowed={currentUser === "admin"}>
+              <AdminSettings onLogout={handleLogout} />
             </ProtectedRoute>
           }
         />

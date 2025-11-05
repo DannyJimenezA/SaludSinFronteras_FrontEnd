@@ -17,14 +17,21 @@ import {
   CheckCircle,
   XCircle,
   Search,
+  ChevronDown,
+  ChevronUp,
+  FileText,
+  Mail,
+  DollarSign,
 } from "lucide-react";
 import { api } from "../lib/api";
+import { toast } from "sonner";
 
 interface AppointmentData {
   id: string;
   scheduledAt: string;
   durationMin: number;
   status: "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED";
+  statusName?: string; // Nombre del estado en español desde el backend
   modality: "online" | "onsite" | "phone";
   patient: {
     id: string;
@@ -57,16 +64,25 @@ async function getDoctorAppointmentsByDate(startDate?: string, endDate?: string)
 export function DoctorAppointments() {
   const navigate = useNavigate();
 
-  // Obtener la fecha actual en la zona horaria local de Costa Rica (UTC-6)
-  const getLocalDate = () => {
+  // Obtener la fecha actual en la zona horaria local
+  const getTodayDate = () => {
     const now = new Date();
-    // Para Costa Rica (UTC-6), restamos 6 horas de la hora UTC actual
-    const localDate = new Date(now.getTime() - (6 * 60 * 60 * 1000));
-    return localDate.toISOString().split("T")[0];
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
-  const [selectedDate, setSelectedDate] = useState<string>(getLocalDate());
+  // Función para parsear fechas UTC como locales (sin conversión de zona horaria)
+  const parseUTCAsLocal = (dateString: string) => {
+    // Remover la 'Z' para que no se interprete como UTC
+    const withoutZ = dateString.replace('Z', '');
+    return new Date(withoutZ);
+  };
+
+  const [selectedDate, setSelectedDate] = useState<string>(getTodayDate());
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [expandedAppointmentId, setExpandedAppointmentId] = useState<string | null>(null);
 
   const { data: appointments, isLoading, refetch } = useQuery({
     queryKey: ["doctor", "appointments", "by-date", selectedDate],
@@ -84,18 +100,43 @@ export function DoctorAppointments() {
       return matchesSearch;
     });
 
-  const getStatusBadge = (status: string) => {
+  const getStatusName = (appointment: AppointmentData) => {
+    // Si el appointment tiene el nombre del estado, usarlo directamente
+    if (appointment.statusName) {
+      return appointment.statusName;
+    }
+
+    // Fallback al mapeo manual si no viene del backend
+    const status = appointment.status;
+    switch (status) {
+      case "CONFIRMED":
+        return "Confirmada";
+      case "PENDING":
+        return "Pendiente";
+      case "COMPLETED":
+        return "Completada";
+      case "CANCELLED":
+        return "Cancelada";
+      default:
+        return status;
+    }
+  };
+
+  const getStatusBadge = (appointment: AppointmentData) => {
+    const status = appointment.status;
+    const statusName = getStatusName(appointment);
+
     switch (status) {
       case "PENDING":
-        return <Badge variant="secondary">Pendiente</Badge>;
+        return <Badge variant="secondary">{statusName}</Badge>;
       case "CONFIRMED":
-        return <Badge className="bg-blue-600">Confirmada</Badge>;
+        return <Badge className="bg-blue-600">{statusName}</Badge>;
       case "COMPLETED":
-        return <Badge className="bg-green-600">Completada</Badge>;
+        return <Badge className="bg-green-600">{statusName}</Badge>;
       case "CANCELLED":
-        return <Badge variant="destructive">Cancelada</Badge>;
+        return <Badge variant="destructive">{statusName}</Badge>;
       default:
-        return <Badge variant="secondary">{status}</Badge>;
+        return <Badge variant="secondary">{statusName}</Badge>;
     }
   };
 
@@ -128,10 +169,35 @@ export function DoctorAppointments() {
   const handleStatusChange = async (appointmentId: string, newStatus: string) => {
     try {
       await api.patch(`/appointments/${appointmentId}/status`, { status: newStatus });
+      toast.success("Estado actualizado exitosamente");
       refetch();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error al cambiar el estado de la cita:", error);
+      toast.error("Error al actualizar el estado", {
+        description: error.response?.data?.message || "Por favor, intenta nuevamente"
+      });
     }
+  };
+
+  const toggleAppointmentDetails = (appointmentId: string) => {
+    setExpandedAppointmentId(expandedAppointmentId === appointmentId ? null : appointmentId);
+  };
+
+  const canModifyAppointment = (appointment: AppointmentData) => {
+    // Solo se pueden modificar citas pendientes o confirmadas que no hayan pasado
+    if (appointment.status !== "PENDING" && appointment.status !== "CONFIRMED") {
+      return false;
+    }
+
+    const now = new Date();
+    const scheduledAt = parseUTCAsLocal(appointment.scheduledAt);
+
+    // Si la cita ya pasó, no se puede modificar
+    if (scheduledAt < now) {
+      return false;
+    }
+
+    return true;
   };
 
   return (
@@ -182,7 +248,7 @@ export function DoctorAppointments() {
                 <div className="flex items-end gap-2">
                   <Button
                     variant="outline"
-                    onClick={() => setSelectedDate(getLocalDate())}
+                    onClick={() => setSelectedDate(getTodayDate())}
                   >
                     Hoy
                   </Button>
@@ -190,8 +256,11 @@ export function DoctorAppointments() {
                     variant="outline"
                     onClick={() => {
                       const now = new Date();
-                      const tomorrow = new Date(now.getTime() - (6 * 60 * 60 * 1000) + (24 * 60 * 60 * 1000));
-                      setSelectedDate(tomorrow.toISOString().split("T")[0]);
+                      now.setDate(now.getDate() + 1);
+                      const year = now.getFullYear();
+                      const month = String(now.getMonth() + 1).padStart(2, '0');
+                      const day = String(now.getDate()).padStart(2, '0');
+                      setSelectedDate(`${year}-${month}-${day}`);
                     }}
                   >
                     Mañana
@@ -250,107 +319,164 @@ export function DoctorAppointments() {
               </p>
             )}
 
-            {filteredAppointments.map((apt) => (
-              <Card key={apt.id} className="border-l-4 border-l-primary">
-                <CardContent className="p-4">
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                    {/* Información principal */}
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <User className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-semibold">
-                          {apt.patient?.name || "Paciente sin nombre"}
-                        </span>
-                        {getStatusBadge(apt.status)}
-                      </div>
+            {filteredAppointments.map((apt) => {
+              const isExpanded = expandedAppointmentId === apt.id;
+              return (
+                <div key={apt.id} className="border rounded-lg overflow-hidden transition-all">
+                  {/* Información básica */}
+                  <div className="p-4 hover:bg-muted/50 transition-colors">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                      {/* Información principal */}
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-semibold">
+                            {apt.patient?.name || "Paciente sin nombre"}
+                          </span>
+                          {getStatusBadge(apt)}
+                        </div>
 
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-4 w-4" />
-                          {(() => {
-                            // Convertir la hora UTC a hora local de Costa Rica (UTC-6)
-                            const utcDate = new Date(apt.scheduledAt);
-                            const localDate = new Date(utcDate.getTime() - (6 * 60 * 60 * 1000));
-                            return localDate.toLocaleTimeString("es-ES", {
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-4 w-4" />
+                            {parseUTCAsLocal(apt.scheduledAt).toLocaleTimeString("es-ES", {
                               hour: "2-digit",
                               minute: "2-digit",
-                              timeZone: "UTC"
-                            });
-                          })()}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          {getModalityIcon(apt.modality)}
-                          {getModalityText(apt.modality)}
-                        </div>
-                        <div>
-                          {apt.durationMin} min
+                              hour12: true
+                            })}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            {getModalityIcon(apt.modality)}
+                            {getModalityText(apt.modality)}
+                          </div>
+                          <div>
+                            {apt.durationMin} min
+                          </div>
                         </div>
                       </div>
 
-                      {apt.patient?.email && (
-                        <p className="text-sm text-muted-foreground">
-                          {apt.patient.email}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Acciones */}
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      {apt.status === "PENDING" && (
-                        <>
+                      {/* Acciones */}
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        {apt.modality === "online" && apt.status === "CONFIRMED" && (
                           <Button
                             size="sm"
-                            variant="outline"
-                            className="gap-2"
-                            onClick={() => handleStatusChange(apt.id, "CONFIRMED")}
+                            onClick={() => navigate(`/video-call/${apt.id}`)}
                           >
-                            <CheckCircle className="h-4 w-4" />
-                            Confirmar
+                            <Video className="h-4 w-4 mr-2" />
+                            Unirse
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="gap-2"
-                            onClick={() => handleStatusChange(apt.id, "CANCELLED")}
-                          >
-                            <XCircle className="h-4 w-4" />
-                            Cancelar
-                          </Button>
-                        </>
-                      )}
+                        )}
 
-                      {apt.status === "CONFIRMED" && (
                         <Button
                           size="sm"
-                          className="gap-2"
-                          onClick={() => handleStatusChange(apt.id, "COMPLETED")}
+                          variant="outline"
+                          onClick={() => toggleAppointmentDetails(apt.id)}
                         >
-                          <CheckCircle className="h-4 w-4" />
-                          Marcar Completada
+                          {isExpanded ? (
+                            <>
+                              <ChevronUp className="h-4 w-4 mr-2" />
+                              Ocultar
+                            </>
+                          ) : (
+                            <>
+                              <ChevronDown className="h-4 w-4 mr-2" />
+                              Gestionar
+                            </>
+                          )}
                         </Button>
-                      )}
-
-                      {apt.status === "COMPLETED" && (
-                        <Badge className="bg-green-600 self-start">
-                          <CheckCircle className="h-4 w-4 mr-1" />
-                          Completada
-                        </Badge>
-                      )}
-
-                      {apt.modality === "online" && apt.status === "CONFIRMED" && (
-                        <Button
-                          size="sm"
-                          onClick={() => navigate(`/video-call/${apt.id}`)}
-                        >
-                          <Video className="h-4 w-4 mr-2" />
-                          Unirse
-                        </Button>
-                      )}
+                      </div>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
+
+                  {/* Panel desplegable con información detallada */}
+                  {isExpanded && (
+                    <div className="border-t bg-muted/30">
+                      <div className="p-6 space-y-4">
+                        {/* Información detallada */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Información del paciente */}
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-sm font-medium">
+                              <User className="h-4 w-4 text-primary" />
+                              <span>Información del Paciente</span>
+                            </div>
+                            <div className="pl-6 space-y-1 text-sm text-muted-foreground">
+                              <p><span className="font-medium">Nombre:</span> {apt.patient?.name || 'No especificado'}</p>
+                              {apt.patient?.email && (
+                                <div className="flex items-center gap-1">
+                                  <Mail className="h-3 w-3" />
+                                  <span>{apt.patient.email}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Detalles de la cita */}
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-sm font-medium">
+                              <FileText className="h-4 w-4 text-primary" />
+                              <span>Detalles de la Cita</span>
+                            </div>
+                            <div className="pl-6 space-y-1 text-sm text-muted-foreground">
+                              <p><span className="font-medium">Modalidad:</span> {getModalityText(apt.modality)}</p>
+                              <p><span className="font-medium">Duración:</span> {apt.durationMin} minutos</p>
+                              <p><span className="font-medium">Estado:</span> {getStatusName(apt)}</p>
+                              <p>
+                                <span className="font-medium">Hora:</span>{" "}
+                                {parseUTCAsLocal(apt.scheduledAt).toLocaleString("es-ES", {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                  hour12: true
+                                })}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Acciones */}
+                        {canModifyAppointment(apt) && (
+                          <div className="pt-4 border-t flex justify-end gap-3">
+                            {apt.status === "PENDING" && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="gap-2"
+                                  onClick={() => handleStatusChange(apt.id, "CONFIRMED")}
+                                >
+                                  <CheckCircle className="h-4 w-4" />
+                                  Confirmar
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  className="gap-2"
+                                  onClick={() => handleStatusChange(apt.id, "CANCELLED")}
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                  Cancelar
+                                </Button>
+                              </>
+                            )}
+
+                            {apt.status === "CONFIRMED" && (
+                              <Button
+                                size="sm"
+                                className="gap-2 bg-green-600 hover:bg-green-700"
+                                onClick={() => handleStatusChange(apt.id, "COMPLETED")}
+                              >
+                                <CheckCircle className="h-4 w-4" />
+                                Marcar Completada
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </CardContent>
         </Card>
       </div>

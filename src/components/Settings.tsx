@@ -1,4 +1,37 @@
+import { useAuth } from "../contexts/AuthContext";
+import { useMe } from "../hooks/useUsers";
+import { PatientSettings } from "./PatientSettings";
+import { DoctorSettings } from "./DoctorSettings";
 
+interface SettingsProps {
+  onLogout: () => void;
+}
+
+export function Settings({ onLogout }: SettingsProps) {
+  const { user } = useAuth();
+  const { data: me, isLoading } = useMe();
+
+  // Mientras carga, mostrar un loader simple
+  if (isLoading || !me) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground">Cargando configuración...</p>
+      </div>
+    );
+  }
+
+  // Determinar qué componente mostrar según el rol
+  const userRole = user?.role || me?.role;
+
+  if (userRole === "DOCTOR") {
+    return <DoctorSettings onLogout={onLogout} />;
+  }
+
+  // Por defecto, mostrar configuración de paciente
+  return <PatientSettings onLogout={onLogout} />;
+}
+
+// Legacy imports for deprecated component below
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -6,7 +39,6 @@ import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { Switch } from "./ui/switch";
 import {
   Select,
   SelectContent,
@@ -16,11 +48,7 @@ import {
 } from "./ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Avatar, AvatarFallback } from "./ui/avatar";
-import { useAuth } from "../contexts/AuthContext";
-
-import { useMe } from "../hooks/useUsers";
 import { updateMe } from "../services/users";
-
 import {
   User as UserIcon,
   CreditCard,
@@ -38,11 +66,8 @@ import {
   X,
 } from "lucide-react";
 
-interface SettingsProps {
-  onLogout: () => void;
-}
-
-export function Settings({ onLogout }: SettingsProps) {
+// Componente legacy mantenido por si acaso (deprecated - usar PatientSettings o DoctorSettings)
+export function SettingsLegacy({ onLogout }: SettingsProps) {
   const navigate = useNavigate();
   const { getDashboardRoute } = useAuth();
 

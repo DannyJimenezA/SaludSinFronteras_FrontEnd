@@ -37,10 +37,9 @@ export function DoctorDashboard() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-primary">Doctor/a</h1>
-            <p className="text-xl font-semibold text-foreground mt-1">
-              {loading ? "Cargando…" : doctorName}
-            </p>
+            <h1 className="text-3xl font-bold text-primary">
+              {loading ? "Cargando…" : `Bienvenido, ${doctorName}`}
+            </h1>
             <p className="text-muted-foreground">
               {loading ? "—" : doctorSpecialty}
             </p>
