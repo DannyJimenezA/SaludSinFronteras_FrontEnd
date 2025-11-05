@@ -30,9 +30,10 @@ interface AppointmentData {
   id: string;
   scheduledAt: string;
   durationMin: number;
-  status: "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED";
+  status: "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED" | "NO_SHOW";
   statusName?: string; // Nombre del estado en español desde el backend
   modality: "online" | "onsite" | "phone";
+  videoRoomName?: string | null; // Nombre de la sala de video
   patient: {
     id: string;
     name: string;
@@ -117,6 +118,8 @@ export function DoctorAppointments() {
         return "Completada";
       case "CANCELLED":
         return "Cancelada";
+      case "NO_SHOW":
+        return "No asistió";
       default:
         return status;
     }
@@ -128,13 +131,15 @@ export function DoctorAppointments() {
 
     switch (status) {
       case "PENDING":
-        return <Badge variant="secondary">{statusName}</Badge>;
+        return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300">{statusName}</Badge>;
       case "CONFIRMED":
-        return <Badge className="bg-blue-600">{statusName}</Badge>;
+        return <Badge className="bg-blue-100 text-blue-800 border-blue-300">{statusName}</Badge>;
       case "COMPLETED":
-        return <Badge className="bg-green-600">{statusName}</Badge>;
+        return <Badge className="bg-green-100 text-green-800 border-green-300">{statusName}</Badge>;
       case "CANCELLED":
-        return <Badge variant="destructive">{statusName}</Badge>;
+        return <Badge className="bg-red-100 text-red-800 border-red-300">{statusName}</Badge>;
+      case "NO_SHOW":
+        return <Badge className="bg-gray-100 text-gray-800 border-gray-300">{statusName}</Badge>;
       default:
         return <Badge variant="secondary">{statusName}</Badge>;
     }
@@ -168,7 +173,7 @@ export function DoctorAppointments() {
 
   const handleStatusChange = async (appointmentId: string, newStatus: string) => {
     try {
-      await api.patch(`/appointments/${appointmentId}/status`, { status: newStatus });
+      await api.patch(`/appointments/${appointmentId}/status`, { Status: newStatus });
       toast.success("Estado actualizado exitosamente");
       refetch();
     } catch (error: any) {
@@ -433,19 +438,20 @@ export function DoctorAppointments() {
                           </div>
                         </div>
 
-                        {/* Acciones */}
-                        {canModifyAppointment(apt) && (
-                          <div className="pt-4 border-t flex justify-end gap-3">
+                        {/* Acciones de gestión */}
+                        <div className="pt-4 border-t">
+                          <p className="text-sm font-medium mb-3">Gestionar cita</p>
+                          <div className="flex flex-wrap gap-2">
+                            {/* Estado PENDING: Aprobar o Cancelar */}
                             {apt.status === "PENDING" && (
                               <>
                                 <Button
                                   size="sm"
-                                  variant="outline"
-                                  className="gap-2"
+                                  className="gap-2 bg-green-600 hover:bg-green-700"
                                   onClick={() => handleStatusChange(apt.id, "CONFIRMED")}
                                 >
                                   <CheckCircle className="h-4 w-4" />
-                                  Confirmar
+                                  Aprobar Cita
                                 </Button>
                                 <Button
                                   size="sm"
@@ -454,23 +460,42 @@ export function DoctorAppointments() {
                                   onClick={() => handleStatusChange(apt.id, "CANCELLED")}
                                 >
                                   <XCircle className="h-4 w-4" />
-                                  Cancelar
+                                  Rechazar
                                 </Button>
                               </>
                             )}
 
+                            {/* Estado CONFIRMED: Completar o Marcar No Show */}
                             {apt.status === "CONFIRMED" && (
-                              <Button
-                                size="sm"
-                                className="gap-2 bg-green-600 hover:bg-green-700"
-                                onClick={() => handleStatusChange(apt.id, "COMPLETED")}
-                              >
-                                <CheckCircle className="h-4 w-4" />
-                                Marcar Completada
-                              </Button>
+                              <>
+                                <Button
+                                  size="sm"
+                                  className="gap-2 bg-green-600 hover:bg-green-700"
+                                  onClick={() => handleStatusChange(apt.id, "COMPLETED")}
+                                >
+                                  <CheckCircle className="h-4 w-4" />
+                                  Marcar Completada
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="gap-2"
+                                  onClick={() => handleStatusChange(apt.id, "NO_SHOW")}
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                  Paciente no asistió
+                                </Button>
+                              </>
+                            )}
+
+                            {/* Estados finales: Solo mostrar información */}
+                            {(apt.status === "COMPLETED" || apt.status === "CANCELLED" || apt.status === "NO_SHOW") && (
+                              <p className="text-sm text-muted-foreground">
+                                Esta cita ya ha sido {apt.status === "COMPLETED" ? "completada" : apt.status === "CANCELLED" ? "cancelada" : "marcada como no asistida"}.
+                              </p>
                             )}
                           </div>
-                        )}
+                        </div>
                       </div>
                     </div>
                   )}

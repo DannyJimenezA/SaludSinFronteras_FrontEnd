@@ -21,6 +21,7 @@ import {
   useCancelAppointment
 } from "../hooks/useAppointments";
 import { toast } from "sonner";
+import { api } from "../lib/api";
 
 type FilterType = "all" | "upcoming" | "past" | "cancelled";
 
@@ -33,6 +34,7 @@ export function MisCitas() {
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [appointmentToCancel, setAppointmentToCancel] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState("");
+  const [checkingVideoRoom, setCheckingVideoRoom] = useState<string | null>(null);
   const limit = 10;
 
   // Traer todas las citas y filtrar en el frontend por hora local
@@ -233,7 +235,30 @@ export function MisCitas() {
     setExpandedAppointmentId(expandedAppointmentId === appointmentId ? null : appointmentId);
   };
 
-  // Función para verificar si el paciente puede unirse a la videollamada
+  // Función para intentar unirse a la videollamada
+  const handleJoinVideoCall = async (appointmentId: string) => {
+    setCheckingVideoRoom(appointmentId);
+    try {
+      const response = await api.get(`/appointments/${appointmentId}/video/token`);
+
+      // Si obtenemos el token exitosamente, redirigir a la sala
+      if (response.data && response.data.url) {
+        window.location.href = response.data.url;
+      } else {
+        // Si no hay URL, navegar a la ruta interna de video
+        navigate(`/video-call/${appointmentId}`);
+      }
+    } catch (error: any) {
+      console.error("Error al obtener token de video:", error);
+      toast.error("No se puede unir a la videollamada", {
+        description: error.response?.data?.message || "El doctor aún no ha iniciado la sala. Intenta nuevamente en unos momentos.",
+      });
+    } finally {
+      setCheckingVideoRoom(null);
+    }
+  };
+
+  // Función para verificar si el paciente puede intentar unirse a la videollamada
   const canJoinVideoCall = (appointment: any) => {
     // Solo para citas online
     if (appointment.modality?.toLowerCase() !== 'online') {
@@ -244,14 +269,11 @@ export function MisCitas() {
     const scheduledAt = parseUTCAsLocal(appointment.scheduledAt);
     const fiveMinutesBefore = new Date(scheduledAt.getTime() - 5 * 60 * 1000);
 
-    // Verificar si la sala de video existe
-    const roomExists = appointment.videoRoomName != null;
-
     // Verificar si estamos dentro del tiempo permitido (5 minutos antes o después de la hora)
     const isWithinTimeWindow = now >= fiveMinutesBefore;
 
-    if (!roomExists && !isWithinTimeWindow) {
-      // Sala no existe y aún no es tiempo
+    if (!isWithinTimeWindow) {
+      // Aún no es tiempo
       const minutesUntilStart = Math.ceil((scheduledAt.getTime() - now.getTime()) / (60 * 1000));
       return {
         canJoin: false,
@@ -260,15 +282,7 @@ export function MisCitas() {
       };
     }
 
-    if (!roomExists && isWithinTimeWindow) {
-      // Sala no existe pero ya es tiempo - el doctor debe habilitarla
-      return {
-        canJoin: false,
-        reason: 'waiting_doctor'
-      };
-    }
-
-    // Sala existe - puede unirse
+    // Ya es tiempo - puede intentar unirse
     return { canJoin: true };
   };
 
@@ -437,15 +451,17 @@ export function MisCitas() {
                           {getStatusBadge(appointment)}
                           {activeFilter === "upcoming" && isOnline && (() => {
                             const joinStatus = canJoinVideoCall(appointment);
+                            const isChecking = checkingVideoRoom === appointment.id;
 
                             if (joinStatus.canJoin) {
                               return (
                                 <Button
                                   className="bg-primary hover:bg-primary/90"
-                                  onClick={() => navigate(`/video-call/${appointment.id}`)}
+                                  onClick={() => handleJoinVideoCall(appointment.id)}
+                                  disabled={isChecking}
                                 >
                                   <Video className="h-4 w-4 mr-2" />
-                                  Unirse
+                                  {isChecking ? "Verificando..." : "Unirse"}
                                 </Button>
                               );
                             }
@@ -456,24 +472,10 @@ export function MisCitas() {
                                   disabled
                                   variant="outline"
                                   className="cursor-not-allowed"
-                                  title={`La sala estará disponible ${joinStatus.minutesUntilStart} minutos antes de la cita`}
+                                  title={`Podrás unirte 5 minutos antes de la cita`}
                                 >
                                   <Clock className="h-4 w-4 mr-2" />
                                   {joinStatus.minutesUntilStart}min
-                                </Button>
-                              );
-                            }
-
-                            if (joinStatus.reason === 'waiting_doctor') {
-                              return (
-                                <Button
-                                  disabled
-                                  variant="outline"
-                                  className="cursor-not-allowed animate-pulse"
-                                  title="Esperando que el doctor habilite la sala"
-                                >
-                                  <Clock className="h-4 w-4 mr-2" />
-                                  Esperando...
                                 </Button>
                               );
                             }

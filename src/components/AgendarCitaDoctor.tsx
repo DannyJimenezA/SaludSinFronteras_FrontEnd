@@ -13,7 +13,8 @@ export function AgendarCitaDoctor() {
   const navigate = useNavigate();
   const { doctorId } = useParams<{ doctorId: string }>();
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
-  const [modality, setModality] = useState<'online' | 'in_person' | 'hybrid'>('online');
+  // La modalidad siempre es 'online'
+  const modality = 'online';
 
   // Función para obtener la fecha de hoy en formato YYYY-MM-DD
   const getTodayDate = () => {
@@ -307,50 +308,33 @@ export function AgendarCitaDoctor() {
                       Horario seleccionado
                     </p>
                     <p className="text-lg font-semibold text-foreground">
-                      {data.slots
-                        .find((s) => s.id === selectedSlot)
-                        ?.startAt &&
-                        new Date(
-                          data.slots.find((s) => s.id === selectedSlot)!
-                            .startAt
-                        ).toLocaleString("es-ES", {
+                      {(() => {
+                        const selectedSlotData = data.slots.find((s) => s.id === selectedSlot);
+                        if (!selectedSlotData?.startAt) return '';
+
+                        const slotDate = parseUTCAsLocal(selectedSlotData.startAt);
+                        return slotDate.toLocaleString("es-ES", {
                           weekday: "long",
                           year: "numeric",
                           month: "long",
                           day: "numeric",
                           hour: "2-digit",
                           minute: "2-digit",
-                        })}
+                        });
+                      })()}
                     </p>
                   </div>
 
-                  {/* Selector de modalidad */}
+                  {/* Modalidad fija */}
                   <div>
                     <p className="text-sm text-muted-foreground mb-2">
                       Modalidad de consulta
                     </p>
-                    <div className="flex gap-2">
-                      <Button
-                        variant={modality === 'online' ? 'default' : 'outline'}
-                        onClick={() => setModality('online')}
-                        className="flex-1"
-                      >
-                        En línea
-                      </Button>
-                      <Button
-                        variant={modality === 'in_person' ? 'default' : 'outline'}
-                        onClick={() => setModality('in_person')}
-                        className="flex-1"
-                      >
-                        Presencial
-                      </Button>
-                      <Button
-                        variant={modality === 'hybrid' ? 'default' : 'outline'}
-                        onClick={() => setModality('hybrid')}
-                        className="flex-1"
-                      >
-                        Híbrido
-                      </Button>
+                    <div className="flex items-center gap-2 p-3 bg-primary/10 rounded-lg border border-primary/20">
+                      <Badge className="bg-primary text-white">En línea</Badge>
+                      <span className="text-sm text-foreground">
+                        La consulta se realizará por videollamada
+                      </span>
                     </div>
                   </div>
 

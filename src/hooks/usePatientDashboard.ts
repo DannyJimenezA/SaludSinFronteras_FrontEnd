@@ -9,6 +9,7 @@ type UpcomingAppointment = {
   date: string;
   time: string;
   type: 'videollamada'|'presencial';
+  status: string;
 };
 
 type RecommendedDoctor = { id: number; name: string; specialty: string; rating: number; location: string; languages: string[]; available: boolean; };
@@ -74,6 +75,7 @@ async function fetchPatientDashboard(): Promise<DashboardData> {
       date: `${yyyy}-${mm}-${dd}`,
       time: time,
       type: (String(a.modality).toLowerCase() === 'online') ? 'videollamada' : 'presencial',
+      status: a.status || 'PENDING',
     };
   });
 
