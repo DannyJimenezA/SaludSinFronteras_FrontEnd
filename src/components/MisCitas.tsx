@@ -3,6 +3,15 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
+import { Input } from "./ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
 import { ArrowLeft, Calendar, Clock, Video, Plus, MapPin, ArrowUpDown, ChevronLeft, ChevronRight, X, ChevronDown, ChevronUp, FileText, User, DollarSign, MessageSquare } from "lucide-react";
 import {
   useAllAppointments,
@@ -21,6 +30,9 @@ export function MisCitas() {
   const [currentPage, setCurrentPage] = useState(1);
   const [order, setOrder] = useState<'asc' | 'desc'>('desc');
   const [expandedAppointmentId, setExpandedAppointmentId] = useState<string | null>(null);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [appointmentToCancel, setAppointmentToCancel] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
   const limit = 10;
 
   // Traer todas las citas y filtrar en el frontend por hora local
@@ -162,22 +174,27 @@ export function MisCitas() {
     }
   };
 
-  // Función para manejar la cancelación de una cita
-  const handleCancelAppointment = async (appointmentId: string) => {
-    const reason = prompt("¿Por qué deseas cancelar esta cita? (opcional)");
+  // Función para abrir el diálogo de cancelación
+  const handleCancelAppointment = (appointmentId: string) => {
+    setAppointmentToCancel(appointmentId);
+    setCancelReason("");
+    setShowCancelDialog(true);
+  };
 
-    if (reason === null) {
-      // Usuario canceló el prompt
-      return;
-    }
+  // Función para confirmar la cancelación
+  const confirmCancelAppointment = async () => {
+    if (!appointmentToCancel) return;
 
     try {
       await cancelAppointment.mutateAsync({
-        id: appointmentId,
-        cancelReason: reason || undefined,
+        id: appointmentToCancel,
+        cancelReason: cancelReason.trim() || undefined,
       });
 
       toast.success("Cita cancelada exitosamente");
+      setShowCancelDialog(false);
+      setAppointmentToCancel(null);
+      setCancelReason("");
     } catch (error: any) {
       toast.error("Error al cancelar la cita", {
         description: error.response?.data?.message || "Por favor, intenta nuevamente",
@@ -626,6 +643,62 @@ export function MisCitas() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Diálogo de confirmación de cancelación */}
+      <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancelar Cita</DialogTitle>
+            <DialogDescription>
+              ¿Estás seguro de que deseas cancelar esta cita? Esta acción no se puede deshacer.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label htmlFor="cancel-reason" className="text-sm font-medium text-foreground">
+                Motivo de cancelación (opcional)
+              </label>
+              <Input
+                id="cancel-reason"
+                placeholder="Ej: Conflicto de horario, problemas de salud, etc."
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                className="w-full"
+              />
+              <p className="text-xs text-muted-foreground">
+                Proporcionar un motivo ayuda al médico a entender mejor tu situación.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowCancelDialog(false);
+                setAppointmentToCancel(null);
+                setCancelReason("");
+              }}
+              disabled={cancelAppointment.isPending}
+            >
+              No, mantener cita
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmCancelAppointment}
+              disabled={cancelAppointment.isPending}
+            >
+              {cancelAppointment.isPending ? (
+                <>Cancelando...</>
+              ) : (
+                <>
+                  <X className="h-4 w-4 mr-2" />
+                  Sí, cancelar cita
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
