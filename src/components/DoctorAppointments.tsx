@@ -84,6 +84,7 @@ export function DoctorAppointments() {
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDate());
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [expandedAppointmentId, setExpandedAppointmentId] = useState<string | null>(null);
+  const [checkingVideoRoom, setCheckingVideoRoom] = useState<string | null>(null);
 
   const { data: appointments, isLoading, refetch } = useQuery({
     queryKey: ["doctor", "appointments", "by-date", selectedDate],
@@ -203,6 +204,79 @@ export function DoctorAppointments() {
     }
 
     return true;
+  };
+
+  // Función para intentar unirse a la videollamada
+  const handleJoinVideoCall = async (appointmentId: string) => {
+    setCheckingVideoRoom(appointmentId);
+    try {
+      const response = await api.get(`/appointments/${appointmentId}/video/token`);
+
+      // Si obtenemos el token exitosamente, construir la URL a Vercel
+      if (response.data && response.data.token && response.data.roomName) {
+        const { token, roomName } = response.data;
+        // Construir la URL a tu aplicación de Vercel con los parámetros necesarios
+        const vercelUrl = `https://live-kit-meet-sable.vercel.app/?token=${encodeURIComponent(token)}&room=${encodeURIComponent(roomName)}`;
+        window.location.href = vercelUrl;
+      } else if (response.data && response.data.url) {
+        // Fallback: si el backend devuelve una URL directa
+        window.location.href = response.data.url;
+      } else {
+        // Si no hay suficientes datos, mostrar error
+        toast.error("No se puede unir a la videollamada", {
+          description: "Faltan datos de la sala de video.",
+        });
+      }
+    } catch (error: any) {
+      console.error("Error al obtener token de video:", error);
+      toast.error("No se puede unir a la videollamada", {
+        description: error.response?.data?.message || "No se pudo crear la sala de video. Intenta nuevamente.",
+      });
+    } finally {
+      setCheckingVideoRoom(null);
+    }
+  };
+
+  // Función para verificar si el doctor puede unirse a la videollamada
+  const canJoinVideoCall = (appointment: AppointmentData) => {
+    // Solo para citas online
+    if (appointment.modality?.toLowerCase() !== 'online') {
+      return { canJoin: false, reason: 'not_online' };
+    }
+
+    // Solo para citas confirmadas
+    if (appointment.status !== 'CONFIRMED') {
+      return { canJoin: false, reason: 'not_confirmed' };
+    }
+
+    const now = new Date();
+    const scheduledAt = parseUTCAsLocal(appointment.scheduledAt);
+    const fiveMinutesBefore = new Date(scheduledAt.getTime() - 5 * 60 * 1000);
+
+    // Calcular la hora de finalización de la cita
+    const durationMin = appointment.durationMin || 30;
+    const endAt = new Date(scheduledAt.getTime() + durationMin * 60000);
+
+    // Verificar si estamos dentro del tiempo permitido (5 minutos antes hasta que termine la cita)
+    const isWithinTimeWindow = now >= fiveMinutesBefore && now <= endAt;
+
+    if (now < fiveMinutesBefore) {
+      // Aún no es tiempo
+      const minutesUntilStart = Math.ceil((scheduledAt.getTime() - now.getTime()) / (60 * 1000));
+      return {
+        canJoin: false,
+        reason: 'too_early',
+        minutesUntilStart
+      };
+    }
+
+    if (now > endAt) {
+      // La cita ya terminó
+      return { canJoin: false, reason: 'finished' };
+    }
+
+    // Ya es tiempo - puede unirse
+    return { canJoin: true };
   };
 
   return (
@@ -362,15 +436,41 @@ export function DoctorAppointments() {
 
                       {/* Acciones */}
                       <div className="flex flex-col sm:flex-row gap-2">
-                        {apt.modality === "online" && apt.status === "CONFIRMED" && (
-                          <Button
-                            size="sm"
-                            onClick={() => navigate(`/video-call/${apt.id}`)}
-                          >
-                            <Video className="h-4 w-4 mr-2" />
-                            Unirse
-                          </Button>
-                        )}
+                        {apt.modality === "online" && apt.status === "CONFIRMED" && (() => {
+                          const joinStatus = canJoinVideoCall(apt);
+                          const isChecking = checkingVideoRoom === apt.id;
+
+                          if (joinStatus.canJoin) {
+                            return (
+                              <Button
+                                size="sm"
+                                className="bg-blue-600 hover:bg-blue-700"
+                                onClick={() => handleJoinVideoCall(apt.id)}
+                                disabled={isChecking}
+                              >
+                                <Video className="h-4 w-4 mr-2" />
+                                {isChecking ? "Verificando..." : "Unirse"}
+                              </Button>
+                            );
+                          }
+
+                          if (joinStatus.reason === 'too_early') {
+                            return (
+                              <Button
+                                size="sm"
+                                disabled
+                                variant="outline"
+                                className="cursor-not-allowed"
+                                title={`Podrás unirte 5 minutos antes de la cita`}
+                              >
+                                <Clock className="h-4 w-4 mr-2" />
+                                {joinStatus.minutesUntilStart}min
+                              </Button>
+                            );
+                          }
+
+                          return null;
+                        })()}
 
                         <Button
                           size="sm"
@@ -468,6 +568,43 @@ export function DoctorAppointments() {
                             {/* Estado CONFIRMED: Completar o Marcar No Show */}
                             {apt.status === "CONFIRMED" && (
                               <>
+                                {/* Botón de unirse a videollamada si es online */}
+                                {apt.modality === "online" && (() => {
+                                  const joinStatus = canJoinVideoCall(apt);
+                                  const isChecking = checkingVideoRoom === apt.id;
+
+                                  if (joinStatus.canJoin) {
+                                    return (
+                                      <Button
+                                        size="sm"
+                                        className="gap-2 bg-blue-600 hover:bg-blue-700"
+                                        onClick={() => handleJoinVideoCall(apt.id)}
+                                        disabled={isChecking}
+                                      >
+                                        <Video className="h-4 w-4" />
+                                        {isChecking ? "Verificando..." : "Unirse a videollamada"}
+                                      </Button>
+                                    );
+                                  }
+
+                                  if (joinStatus.reason === 'too_early') {
+                                    return (
+                                      <Button
+                                        size="sm"
+                                        disabled
+                                        variant="outline"
+                                        className="gap-2 cursor-not-allowed"
+                                        title={`Podrás unirte 5 minutos antes de la cita`}
+                                      >
+                                        <Clock className="h-4 w-4" />
+                                        {joinStatus.minutesUntilStart}min
+                                      </Button>
+                                    );
+                                  }
+
+                                  return null;
+                                })()}
+
                                 <Button
                                   size="sm"
                                   className="gap-2 bg-green-600 hover:bg-green-700"

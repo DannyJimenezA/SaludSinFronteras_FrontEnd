@@ -241,12 +241,20 @@ export function MisCitas() {
     try {
       const response = await api.get(`/appointments/${appointmentId}/video/token`);
 
-      // Si obtenemos el token exitosamente, redirigir a la sala
-      if (response.data && response.data.url) {
+      // Si obtenemos el token exitosamente, construir la URL a Vercel
+      if (response.data && response.data.token && response.data.roomName) {
+        const { token, roomName } = response.data;
+        // Construir la URL a tu aplicación de Vercel con los parámetros necesarios
+        const vercelUrl = `https://live-kit-meet-sable.vercel.app/?token=${encodeURIComponent(token)}&room=${encodeURIComponent(roomName)}`;
+        window.location.href = vercelUrl;
+      } else if (response.data && response.data.url) {
+        // Fallback: si el backend devuelve una URL directa
         window.location.href = response.data.url;
       } else {
-        // Si no hay URL, navegar a la ruta interna de video
-        navigate(`/video-call/${appointmentId}`);
+        // Si no hay suficientes datos, mostrar error
+        toast.error("No se puede unir a la videollamada", {
+          description: "Faltan datos de la sala de video.",
+        });
       }
     } catch (error: any) {
       console.error("Error al obtener token de video:", error);
