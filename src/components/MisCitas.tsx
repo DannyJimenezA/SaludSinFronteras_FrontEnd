@@ -65,7 +65,12 @@ export function MisCitas() {
 
       const scheduledAt = parseUTCAsLocal(apt.scheduledAt);
 
-      if (scheduledAt >= now) {
+      // Calcular la hora de finalización de la cita
+      const durationMin = apt.durationMin || 30; // 30 minutos por defecto
+      const endAt = new Date(scheduledAt.getTime() + durationMin * 60000);
+
+      // La cita es próxima si aún no ha terminado
+      if (endAt > now) {
         upcoming.push(apt);
       } else {
         past.push(apt);

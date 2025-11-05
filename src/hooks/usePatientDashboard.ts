@@ -44,7 +44,13 @@ async function fetchPatientDashboard(): Promise<DashboardData> {
   const upcomingApptsRaw = allApptsRaw.filter((a: any) => {
     if (a.status === 'CANCELLED') return false;
     const scheduledAt = parseUTCAsLocal(a.scheduledAt);
-    return scheduledAt >= now;
+
+    // Calcular la hora de finalización de la cita
+    const durationMin = a.durationMin || 30; // 30 minutos por defecto
+    const endAt = new Date(scheduledAt.getTime() + durationMin * 60000);
+
+    // La cita es próxima si aún no ha terminado
+    return endAt > now;
   });
 
   // Limitar a las primeras 10 citas próximas
