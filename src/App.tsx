@@ -25,6 +25,7 @@ import { Settings as SettingsPage } from "./components/Settings";
 import { PaymentsBilling } from "./components/PaymentsBilling";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { NotFound } from "./components/NotFound";
+import { DoctorVerificationGuard } from "./components/DoctorVerificationGuard";
 
 // Nuevos componentes implementados
 import { MedicalHistoryNew } from "./components/MedicalHistoryNew";
@@ -167,7 +168,9 @@ export default function App() {
           path="/doctor-dashboard"
           element={
             <ProtectedRoute isAllowed={currentUser === "doctor"}>
-              <DoctorDashboard />
+              <DoctorVerificationGuard>
+                <DoctorDashboard />
+              </DoctorVerificationGuard>
             </ProtectedRoute>
           }
         />
@@ -187,7 +190,13 @@ export default function App() {
           path="/appointments"
           element={
             <ProtectedRoute isAllowed={currentUser !== null}>
-              {currentUser === "doctor" ? <DoctorAppointments /> : <AppointmentScheduling />}
+              {currentUser === "doctor" ? (
+                <DoctorVerificationGuard>
+                  <DoctorAppointments />
+                </DoctorVerificationGuard>
+              ) : (
+                <AppointmentScheduling />
+              )}
             </ProtectedRoute>
           }
         />
@@ -378,7 +387,9 @@ export default function App() {
           path="/messages"
           element={
             <ProtectedRoute isAllowed={currentUser === "doctor"}>
-              <MensajesDoctor />
+              <DoctorVerificationGuard>
+                <MensajesDoctor />
+              </DoctorVerificationGuard>
             </ProtectedRoute>
           }
         />
@@ -398,7 +409,9 @@ export default function App() {
           path="/availability"
           element={
             <ProtectedRoute isAllowed={currentUser === "doctor"}>
-              <DoctorAvailability />
+              <DoctorVerificationGuard>
+                <DoctorAvailability />
+              </DoctorVerificationGuard>
             </ProtectedRoute>
           }
         />

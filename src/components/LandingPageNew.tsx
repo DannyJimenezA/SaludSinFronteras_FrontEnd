@@ -104,7 +104,7 @@ export function LandingPageNew() {
               </p>
 
               
-
+{/* 
               <div className="hero-stats">
                 <div className="user-avatars">
                   <div className="avatar">A</div>
@@ -119,7 +119,7 @@ export function LandingPageNew() {
                     <span className="rating-text">4.9/5</span>
                   </div>
                 </div>
-              </div>
+              </div> */}
             </div>
 
             <div className="hero-image">
@@ -134,7 +134,7 @@ export function LandingPageNew() {
       </section>
 
       {/* Stats Section */}
-      <section className="stats-section">
+      {/* <section className="stats-section">
         <div className="landing-container">
           <div className="stats-grid">
             <div className="stat-item">
@@ -182,7 +182,7 @@ export function LandingPageNew() {
             </div>
           </div>
         </div>
-      </section>
+      </section> */}
 
       {/* Features Section */}
       <section className="features-section">
@@ -390,7 +390,7 @@ export function LandingPageNew() {
       </section>
 
       {/* CTA Section */}
-      <section className="cta-section">
+      {/* <section className="cta-section">
         <div className="landing-container">
           <div className="cta-content">
             <h2 className="cta-title">¿Listo para Transformar tu Salud?</h2>
@@ -414,7 +414,7 @@ export function LandingPageNew() {
             </div>
           </div>
         </div>
-      </section>
+      </section> */}
 
       {/* Footer */}
       <footer className="landing-footer">

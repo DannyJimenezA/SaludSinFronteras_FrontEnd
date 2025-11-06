@@ -273,6 +273,11 @@ export function MisCitas() {
       return { canJoin: false, reason: 'not_online' };
     }
 
+    // Solo si la cita está confirmada
+    if (appointment.status !== 'CONFIRMED') {
+      return { canJoin: false, reason: 'not_confirmed' };
+    }
+
     const now = new Date();
     const scheduledAt = parseUTCAsLocal(appointment.scheduledAt);
     const fiveMinutesBefore = new Date(scheduledAt.getTime() - 5 * 60 * 1000);
