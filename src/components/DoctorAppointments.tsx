@@ -30,9 +30,10 @@ interface AppointmentData {
   id: string;
   scheduledAt: string;
   durationMin: number;
-  status: "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED";
+  status: "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED" | "NO_SHOW";
   statusName?: string; // Nombre del estado en español desde el backend
   modality: "online" | "onsite" | "phone";
+  videoRoomName?: string | null; // Nombre de la sala de video
   patient: {
     id: string;
     name: string;
@@ -83,6 +84,7 @@ export function DoctorAppointments() {
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDate());
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [expandedAppointmentId, setExpandedAppointmentId] = useState<string | null>(null);
+  const [checkingVideoRoom, setCheckingVideoRoom] = useState<string | null>(null);
 
   const { data: appointments, isLoading, refetch } = useQuery({
     queryKey: ["doctor", "appointments", "by-date", selectedDate],
@@ -117,6 +119,8 @@ export function DoctorAppointments() {
         return "Completada";
       case "CANCELLED":
         return "Cancelada";
+      case "NO_SHOW":
+        return "No asistió";
       default:
         return status;
     }
@@ -128,13 +132,15 @@ export function DoctorAppointments() {
 
     switch (status) {
       case "PENDING":
-        return <Badge variant="secondary">{statusName}</Badge>;
+        return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300">{statusName}</Badge>;
       case "CONFIRMED":
-        return <Badge className="bg-blue-600">{statusName}</Badge>;
+        return <Badge className="bg-blue-100 text-blue-800 border-blue-300">{statusName}</Badge>;
       case "COMPLETED":
-        return <Badge className="bg-green-600">{statusName}</Badge>;
+        return <Badge className="bg-green-100 text-green-800 border-green-300">{statusName}</Badge>;
       case "CANCELLED":
-        return <Badge variant="destructive">{statusName}</Badge>;
+        return <Badge className="bg-red-100 text-red-800 border-red-300">{statusName}</Badge>;
+      case "NO_SHOW":
+        return <Badge className="bg-gray-100 text-gray-800 border-gray-300">{statusName}</Badge>;
       default:
         return <Badge variant="secondary">{statusName}</Badge>;
     }
@@ -168,7 +174,7 @@ export function DoctorAppointments() {
 
   const handleStatusChange = async (appointmentId: string, newStatus: string) => {
     try {
-      await api.patch(`/appointments/${appointmentId}/status`, { status: newStatus });
+      await api.patch(`/appointments/${appointmentId}/status`, { Status: newStatus });
       toast.success("Estado actualizado exitosamente");
       refetch();
     } catch (error: any) {
@@ -198,6 +204,95 @@ export function DoctorAppointments() {
     }
 
     return true;
+  };
+
+  // Función para intentar unirse a la videollamada
+  const handleJoinVideoCall = async (appointmentId: string) => {
+    setCheckingVideoRoom(appointmentId);
+    try {
+      const response = await api.get(`/appointments/${appointmentId}/video/token`);
+
+      // Si obtenemos el token exitosamente, construir la URL a Vercel
+      if (response.data && response.data.token && response.data.roomName) {
+        const { token, roomName } = response.data;
+        // Construir la URL a tu aplicación de Vercel con los parámetros necesarios
+        const vercelUrl = `https://live-kit-meet-sable.vercel.app/?token=${encodeURIComponent(token)}&room=${encodeURIComponent(roomName)}`;
+        // Abrir en nueva pestaña
+        window.open(vercelUrl, '_blank');
+      } else if (response.data && response.data.url) {
+        // Fallback: si el backend devuelve una URL directa
+        window.open(response.data.url, '_blank');
+      } else {
+        // Si no hay suficientes datos, mostrar error
+        toast.error("No se puede unir a la videollamada", {
+          description: "Faltan datos de la sala de video.",
+        });
+      }
+    } catch (error: any) {
+      console.error("Error al obtener token de video:", error);
+      toast.error("No se puede unir a la videollamada", {
+        description: error.response?.data?.message || "No se pudo crear la sala de video. Intenta nuevamente.",
+      });
+    } finally {
+      setCheckingVideoRoom(null);
+    }
+  };
+
+  // Función para verificar si el doctor puede unirse a la videollamada
+  const canJoinVideoCall = (appointment: AppointmentData) => {
+    // Solo para citas online
+    if (appointment.modality?.toLowerCase() !== 'online') {
+      return { canJoin: false, reason: 'not_online' };
+    }
+
+    // Solo para citas confirmadas
+    if (appointment.status !== 'CONFIRMED') {
+      return { canJoin: false, reason: 'not_confirmed' };
+    }
+
+    const now = new Date();
+    const scheduledAt = parseUTCAsLocal(appointment.scheduledAt);
+    const fiveMinutesBefore = new Date(scheduledAt.getTime() - 5 * 60 * 1000);
+
+    // Calcular la hora de finalización de la cita
+    const durationMin = appointment.durationMin || 30;
+    const endAt = new Date(scheduledAt.getTime() + durationMin * 60 * 1000);
+
+    // Debug: descomentar para ver los tiempos
+    // console.log('Video call times:', {
+    //   now: now.toLocaleTimeString(),
+    //   scheduledAt: scheduledAt.toLocaleTimeString(),
+    //   fiveMinutesBefore: fiveMinutesBefore.toLocaleTimeString(),
+    //   endAt: endAt.toLocaleTimeString(),
+    //   durationMin,
+    //   nowTime: now.getTime(),
+    //   fiveMinutesBeforeTime: fiveMinutesBefore.getTime(),
+    //   endAtTime: endAt.getTime(),
+    //   isBefore: now < fiveMinutesBefore,
+    //   isAfter: now > endAt,
+    //   isInWindow: now >= fiveMinutesBefore && now <= endAt
+    // });
+
+    // Si aún no son 5 minutos antes, mostrar contador
+    if (now < fiveMinutesBefore) {
+      const minutesUntilStart = Math.ceil((fiveMinutesBefore.getTime() - now.getTime()) / (60 * 1000));
+      // console.log('Too early, minutes until start:', minutesUntilStart);
+      return {
+        canJoin: false,
+        reason: 'too_early',
+        minutesUntilStart
+      };
+    }
+
+    // Si la cita ya terminó, ocultar el botón
+    if (now > endAt) {
+      // console.log('Appointment finished');
+      return { canJoin: false, reason: 'finished' };
+    }
+
+    // Ya es tiempo - puede unirse (desde 5 minutos antes hasta que termine)
+    // console.log('Can join now!');
+    return { canJoin: true };
   };
 
   return (
@@ -357,15 +452,41 @@ export function DoctorAppointments() {
 
                       {/* Acciones */}
                       <div className="flex flex-col sm:flex-row gap-2">
-                        {apt.modality === "online" && apt.status === "CONFIRMED" && (
-                          <Button
-                            size="sm"
-                            onClick={() => navigate(`/video-call/${apt.id}`)}
-                          >
-                            <Video className="h-4 w-4 mr-2" />
-                            Unirse
-                          </Button>
-                        )}
+                        {apt.modality === "online" && apt.status === "CONFIRMED" && (() => {
+                          const joinStatus = canJoinVideoCall(apt);
+                          const isChecking = checkingVideoRoom === apt.id;
+
+                          if (joinStatus.canJoin) {
+                            return (
+                              <Button
+                                size="sm"
+                                className="bg-primary hover:bg-primary/90"
+                                onClick={() => handleJoinVideoCall(apt.id)}
+                                disabled={isChecking}
+                              >
+                                <Video className="h-4 w-4 mr-2" />
+                                {isChecking ? "Verificando..." : "Unirse"}
+                              </Button>
+                            );
+                          }
+
+                          if (joinStatus.reason === 'too_early') {
+                            return (
+                              <Button
+                                size="sm"
+                                disabled
+                                variant="outline"
+                                className="cursor-not-allowed"
+                                title={`Podrás unirte 5 minutos antes de la cita`}
+                              >
+                                <Clock className="h-4 w-4 mr-2" />
+                                {joinStatus.minutesUntilStart}min
+                              </Button>
+                            );
+                          }
+
+                          return null;
+                        })()}
 
                         <Button
                           size="sm"
@@ -433,19 +554,20 @@ export function DoctorAppointments() {
                           </div>
                         </div>
 
-                        {/* Acciones */}
-                        {canModifyAppointment(apt) && (
-                          <div className="pt-4 border-t flex justify-end gap-3">
+                        {/* Acciones de gestión */}
+                        <div className="pt-4 border-t">
+                          <p className="text-sm font-medium mb-3">Gestionar cita</p>
+                          <div className="flex flex-wrap gap-2">
+                            {/* Estado PENDING: Aprobar o Cancelar */}
                             {apt.status === "PENDING" && (
                               <>
                                 <Button
                                   size="sm"
-                                  variant="outline"
-                                  className="gap-2"
+                                  className="gap-2 bg-green-600 hover:bg-green-700"
                                   onClick={() => handleStatusChange(apt.id, "CONFIRMED")}
                                 >
                                   <CheckCircle className="h-4 w-4" />
-                                  Confirmar
+                                  Aprobar Cita
                                 </Button>
                                 <Button
                                   size="sm"
@@ -454,23 +576,79 @@ export function DoctorAppointments() {
                                   onClick={() => handleStatusChange(apt.id, "CANCELLED")}
                                 >
                                   <XCircle className="h-4 w-4" />
-                                  Cancelar
+                                  Rechazar
                                 </Button>
                               </>
                             )}
 
+                            {/* Estado CONFIRMED: Completar o Marcar No Show */}
                             {apt.status === "CONFIRMED" && (
-                              <Button
-                                size="sm"
-                                className="gap-2 bg-green-600 hover:bg-green-700"
-                                onClick={() => handleStatusChange(apt.id, "COMPLETED")}
-                              >
-                                <CheckCircle className="h-4 w-4" />
-                                Marcar Completada
-                              </Button>
+                              <>
+                                {/* Botón de unirse a videollamada si es online */}
+                                {apt.modality === "online" && (() => {
+                                  const joinStatus = canJoinVideoCall(apt);
+                                  const isChecking = checkingVideoRoom === apt.id;
+
+                                  if (joinStatus.canJoin) {
+                                    return (
+                                      <Button
+                                        size="sm"
+                                        className="gap-2 bg-primary hover:bg-primary/90"
+                                        onClick={() => handleJoinVideoCall(apt.id)}
+                                        disabled={isChecking}
+                                      >
+                                        <Video className="h-4 w-4" />
+                                        {isChecking ? "Verificando..." : "Unirse a videollamada"}
+                                      </Button>
+                                    );
+                                  }
+
+                                  if (joinStatus.reason === 'too_early') {
+                                    return (
+                                      <Button
+                                        size="sm"
+                                        disabled
+                                        variant="outline"
+                                        className="gap-2 cursor-not-allowed"
+                                        title={`Podrás unirte 5 minutos antes de la cita`}
+                                      >
+                                        <Clock className="h-4 w-4" />
+                                        {joinStatus.minutesUntilStart}min
+                                      </Button>
+                                    );
+                                  }
+
+                                  return null;
+                                })()}
+
+                                <Button
+                                  size="sm"
+                                  className="gap-2 bg-green-600 hover:bg-green-700"
+                                  onClick={() => handleStatusChange(apt.id, "COMPLETED")}
+                                >
+                                  <CheckCircle className="h-4 w-4" />
+                                  Marcar Completada
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="gap-2"
+                                  onClick={() => handleStatusChange(apt.id, "NO_SHOW")}
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                  Paciente no asistió
+                                </Button>
+                              </>
+                            )}
+
+                            {/* Estados finales: Solo mostrar información */}
+                            {(apt.status === "COMPLETED" || apt.status === "CANCELLED" || apt.status === "NO_SHOW") && (
+                              <p className="text-sm text-muted-foreground">
+                                Esta cita ya ha sido {apt.status === "COMPLETED" ? "completada" : apt.status === "CANCELLED" ? "cancelada" : "marcada como no asistida"}.
+                              </p>
                             )}
                           </div>
-                        )}
+                        </div>
                       </div>
                     </div>
                   )}

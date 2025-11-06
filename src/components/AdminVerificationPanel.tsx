@@ -4,6 +4,7 @@
  */
 
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -44,11 +45,13 @@ import {
   GraduationCap,
   Award,
   Globe,
+  ArrowLeft,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { PendingDoctorVerification, VerificationResponseDto } from '../types/verification';
 
 export function AdminVerificationPanel() {
+  const navigate = useNavigate();
   const [selectedDoctorId, setSelectedDoctorId] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -112,55 +115,131 @@ export function AdminVerificationPanel() {
     reset();
   };
 
-  const renderPendingCard = (verification: PendingDoctorVerification) => (
-    <Card key={String(verification.UserId)} className="hover:shadow-md transition-shadow">
-      <CardHeader>
-        <div className="flex items-start justify-between">
-          <div className="space-y-1">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <User className="h-5 w-5" />
-              {verification.DoctorName}
-            </CardTitle>
-            <CardDescription className="flex flex-col gap-1">
-              <span className="flex items-center gap-1">
-                <Mail className="h-3 w-3" />
-                {verification.Email}
-              </span>
-              {verification.LicenseNumber && (
+  const renderPendingCard = (verification: PendingDoctorVerification) => {
+    // Cargar detalles completos si es el doctor seleccionado
+    const fullDetails = selectedDoctorId === String(verification.UserId) ? selectedVerification : null;
+
+    return (
+      <Card key={String(verification.UserId)} className="hover:shadow-md transition-shadow">
+        <CardHeader>
+          <div className="flex items-start justify-between">
+            <div className="space-y-1">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <User className="h-5 w-5" />
+                {verification.DoctorName}
+              </CardTitle>
+              <CardDescription className="flex flex-col gap-1">
                 <span className="flex items-center gap-1">
-                  <Building className="h-3 w-3" />
-                  Licencia: {verification.LicenseNumber}
+                  <Mail className="h-3 w-3" />
+                  {verification.Email}
                 </span>
-              )}
-            </CardDescription>
+                {verification.LicenseNumber && (
+                  <span className="flex items-center gap-1">
+                    <Building className="h-3 w-3" />
+                    Licencia: {verification.LicenseNumber}
+                  </span>
+                )}
+              </CardDescription>
+            </div>
+            <Badge variant="secondary">
+              <Clock className="h-3 w-3 mr-1" />
+              Pendiente
+            </Badge>
           </div>
-          <Badge variant="secondary">
-            <Clock className="h-3 w-3 mr-1" />
-            Pendiente
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Documents Count */}
-        <div>
-          <Label className="text-sm font-semibold mb-2 block">
-            <FileText className="h-4 w-4 inline mr-1" />
-            Documentos: {verification.DocumentsCount}
-          </Label>
-        </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Documents */}
+          {fullDetails?.CertificationDocuments && fullDetails.CertificationDocuments.length > 0 && (
+            <div>
+              <Label className="text-sm font-semibold mb-2 block">
+                <FileText className="h-4 w-4 inline mr-1" />
+                Documentos ({fullDetails.CertificationDocuments.length})
+              </Label>
+              <div className="flex flex-wrap gap-2">
+                {fullDetails.CertificationDocuments.map((doc, idx) => (
+                  <Button
+                    key={idx}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(doc, '_blank')}
+                  >
+                    <ExternalLink className="h-3 w-3 mr-1" />
+                    Documento {idx + 1}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
 
-        {/* Dates */}
-        <div className="text-xs text-muted-foreground">
-          <p>Enviado: {new Date(verification.SubmittedAt).toLocaleString('es-CR')}</p>
-        </div>
+          {!fullDetails && (
+            <div>
+              <Label className="text-sm font-semibold mb-2 block">
+                <FileText className="h-4 w-4 inline mr-1" />
+                Documentos: {verification.DocumentsCount}
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Haz clic en "Ver Detalles" para ver los documentos
+              </p>
+            </div>
+          )}
 
-        {/* Actions */}
-        <Button className="w-full" onClick={() => openReviewDialog(verification.UserId)}>
-          Revisar Verificación
-        </Button>
-      </CardContent>
-    </Card>
-  );
+          {/* Additional Info if loaded */}
+          {fullDetails && (
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              {fullDetails.YearsExperience !== undefined && (
+                <div className="flex items-center gap-2">
+                  <Award className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-xs">{fullDetails.YearsExperience} años exp.</span>
+                </div>
+              )}
+              {fullDetails.LicenseCountry && (
+                <div className="flex items-center gap-2">
+                  <Globe className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-xs">{fullDetails.LicenseCountry}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Notes */}
+          {fullDetails?.VerificationNotes && (
+            <div>
+              <Label className="text-sm font-semibold mb-1 block">Notas del Doctor</Label>
+              <p className="text-sm text-muted-foreground bg-muted p-3 rounded-md">
+                {fullDetails.VerificationNotes}
+              </p>
+            </div>
+          )}
+
+          {/* Dates */}
+          <div className="text-xs text-muted-foreground">
+            <p>Enviado: {new Date(verification.SubmittedAt).toLocaleString('es-CR')}</p>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-2">
+            {!fullDetails && (
+              <Button
+                className="flex-1"
+                variant="outline"
+                onClick={() => {
+                  setSelectedDoctorId(verification.UserId.toString());
+                }}
+              >
+                Ver Detalles
+              </Button>
+            )}
+            <Button
+              className="flex-1"
+              onClick={() => openReviewDialog(verification.UserId)}
+            >
+              Revisar Verificación
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
 
   const renderFullVerificationCard = (verification: VerificationResponseDto) => (
     <Card key={String(verification.UserId)} className="hover:shadow-md transition-shadow">
@@ -286,6 +365,12 @@ export function AdminVerificationPanel() {
   return (
     <div className="container mx-auto p-6">
       <div className="mb-6">
+        <div className="flex items-center gap-4 mb-4">
+          <Button variant="outline" onClick={() => navigate('/admin-panel')}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Volver
+          </Button>
+        </div>
         <h1 className="text-3xl font-bold mb-2">Panel de Verificaciones</h1>
         <p className="text-muted-foreground">
           Gestiona las solicitudes de verificación de doctores
@@ -371,7 +456,7 @@ export function AdminVerificationPanel() {
 
       {/* Review Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Revisar Verificación</DialogTitle>
             <DialogDescription>
@@ -379,6 +464,108 @@ export function AdminVerificationPanel() {
               {selectedVerification?.DoctorName}
             </DialogDescription>
           </DialogHeader>
+
+          {/* Doctor Details Section */}
+          {selectedVerification && (
+            <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
+              <h3 className="font-semibold text-lg">Información del Doctor</h3>
+
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Nombre Completo</Label>
+                  <p className="font-medium">{selectedVerification.DoctorName}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Email</Label>
+                  <p className="font-medium">{selectedVerification.Email}</p>
+                </div>
+                {selectedVerification.LicenseNumber && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Número de Licencia</Label>
+                    <p className="font-medium">{selectedVerification.LicenseNumber}</p>
+                  </div>
+                )}
+                {selectedVerification.LicenseCountry && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">País de Licencia</Label>
+                    <p className="font-medium">{selectedVerification.LicenseCountry}</p>
+                  </div>
+                )}
+                {selectedVerification.YearsExperience !== undefined && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Años de Experiencia</Label>
+                    <p className="font-medium">{selectedVerification.YearsExperience} años</p>
+                  </div>
+                )}
+                {selectedVerification.MedicalSchool && (
+                  <div className="col-span-2">
+                    <Label className="text-xs text-muted-foreground">Escuela de Medicina</Label>
+                    <p className="font-medium">{selectedVerification.MedicalSchool}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Bio */}
+              {selectedVerification.Bio && (
+                <div>
+                  <Label className="text-xs text-muted-foreground">Biografía</Label>
+                  <p className="text-sm mt-1">{selectedVerification.Bio}</p>
+                </div>
+              )}
+
+              {/* Specialties */}
+              {selectedVerification.Specialties && selectedVerification.Specialties.length > 0 && (
+                <div>
+                  <Label className="text-xs text-muted-foreground">Especialidades</Label>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {selectedVerification.Specialties.map((spec: any) => (
+                      <Badge key={spec.Id} variant="secondary">
+                        {spec.Name}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Documents */}
+              {selectedVerification.CertificationDocuments && selectedVerification.CertificationDocuments.length > 0 && (
+                <div>
+                  <Label className="text-xs text-muted-foreground mb-2 block">
+                    Documentos de Certificación ({selectedVerification.CertificationDocuments.length})
+                  </Label>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedVerification.CertificationDocuments.map((doc, idx) => (
+                      <Button
+                        key={idx}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(doc, '_blank')}
+                      >
+                        <ExternalLink className="h-3 w-3 mr-1" />
+                        Ver Documento {idx + 1}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Doctor's Notes */}
+              {selectedVerification.VerificationNotes && (
+                <div>
+                  <Label className="text-xs text-muted-foreground">Notas del Doctor</Label>
+                  <p className="text-sm bg-background p-3 rounded-md mt-1">
+                    {selectedVerification.VerificationNotes}
+                  </p>
+                </div>
+              )}
+
+              {/* Submission Date */}
+              <div className="text-xs text-muted-foreground">
+                <p>Enviado: {new Date(selectedVerification.SubmittedAt).toLocaleString('es-CR')}</p>
+              </div>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit(handleReview)} className="space-y-4">
             {/* Action Radio Group */}

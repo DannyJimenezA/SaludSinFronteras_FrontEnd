@@ -11,7 +11,12 @@ export function useSpecialties() {
     queryKey: ["specialties"],
     queryFn: async () => {
       const response = await api.get("/specialties");
-      return response.data as Specialty[];
+      // El backend devuelve { Id, Name } en PascalCase, lo mapeamos a { id, name } en camelCase
+      const specialtiesFromApi = response.data as Array<{ Id: string; Name: string }>;
+      return specialtiesFromApi.map(s => ({
+        id: s.Id,
+        name: s.Name,
+      })) as Specialty[];
     },
     staleTime: 1000 * 60 * 60, // Cache por 1 hora (las especialidades no cambian frecuentemente)
   });

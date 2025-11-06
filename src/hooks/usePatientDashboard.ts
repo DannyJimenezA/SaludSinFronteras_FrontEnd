@@ -9,6 +9,7 @@ type UpcomingAppointment = {
   date: string;
   time: string;
   type: 'videollamada'|'presencial';
+  status: string;
 };
 
 type RecommendedDoctor = { id: number; name: string; specialty: string; rating: number; location: string; languages: string[]; available: boolean; };
@@ -29,14 +30,32 @@ const parseUTCAsLocal = (dateString: string) => {
 };
 
 async function fetchPatientDashboard(): Promise<DashboardData> {
-  // 1) Citas próximas del usuario autenticado usando el nuevo endpoint
-  const apptsRes = await api.get('/appointments/upcoming', {
-    params: { limit: 10 } // Obtener hasta 10 citas próximas
+  // 1) Traer todas las citas y filtrar en el frontend por hora local
+  const apptsRes = await api.get('/appointments/all', {
+    params: {
+      limit: 100, // Aumentar el límite para obtener todas las citas
+      order: 'asc'
+    }
   });
-  const apptsRaw = Array.isArray(apptsRes.data) ? apptsRes.data : [];
+  // El endpoint /appointments/all devuelve { data: [], pagination: {} }
+  const allApptsRaw = Array.isArray(apptsRes.data?.data) ? apptsRes.data.data : (Array.isArray(apptsRes.data) ? apptsRes.data : []);
 
-  // Mapea la respuesta del nuevo endpoint
-  const upcoming = apptsRaw.map((a: any): UpcomingAppointment => {
+  // Clasificar citas usando hora local
+  const now = new Date();
+  const upcomingApptsRaw = allApptsRaw.filter((a: any) => {
+    if (a.status === 'CANCELLED') return false;
+    const scheduledAt = parseUTCAsLocal(a.scheduledAt);
+
+    // Calcular la hora de finalización de la cita
+    const durationMin = a.durationMin || 30; // 30 minutos por defecto
+    const endAt = new Date(scheduledAt.getTime() + durationMin * 60000);
+
+    // La cita es próxima si aún no ha terminado
+    return endAt > now;
+  });
+
+  // Limitar a las primeras 10 citas próximas
+  const upcoming = upcomingApptsRaw.slice(0, 10).map((a: any): UpcomingAppointment => {
     const dt = parseUTCAsLocal(a.scheduledAt);
     const yyyy = dt.getFullYear();
     const mm = String(dt.getMonth() + 1).padStart(2, '0');
@@ -56,6 +75,7 @@ async function fetchPatientDashboard(): Promise<DashboardData> {
       date: `${yyyy}-${mm}-${dd}`,
       time: time,
       type: (String(a.modality).toLowerCase() === 'online') ? 'videollamada' : 'presencial',
+      status: a.status || 'PENDING',
     };
   });
 

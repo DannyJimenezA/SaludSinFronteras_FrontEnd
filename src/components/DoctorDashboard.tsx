@@ -158,45 +158,61 @@ export function DoctorDashboard() {
                   </p>
                 )}
 
-                {todaysAppointments.map((a) => (
-                  <div
-                    key={String(a.id)}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-                        <Clock className="h-6 w-6 text-primary" />
-                      </div>
-                      <div>
-                        <h4 className="font-medium">{a.patient || "Paciente"}</h4>
-                        <p className="text-sm text-muted-foreground">{a.condition}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-xs font-medium">{a.time}</span>
-                          {a.urgent && (
-                            <Badge variant="destructive" className="text-xs">
-                              Urgente
-                            </Badge>
-                          )}
+                {todaysAppointments.map((a) => {
+                  // Función para obtener el badge del estado
+                  const getStatusBadge = (status: string) => {
+                    switch (status) {
+                      case "PENDING":
+                        return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300">Pendiente</Badge>;
+                      case "CONFIRMED":
+                        return <Badge className="bg-blue-100 text-blue-800 border-blue-300">Confirmada</Badge>;
+                      case "COMPLETED":
+                        return <Badge className="bg-green-100 text-green-800 border-green-300">Completada</Badge>;
+                      case "CANCELLED":
+                        return <Badge className="bg-red-100 text-red-800 border-red-300">Cancelada</Badge>;
+                      case "NO_SHOW":
+                        return <Badge className="bg-gray-100 text-gray-800 border-gray-300">No asistió</Badge>;
+                      default:
+                        return <Badge variant="secondary">{status}</Badge>;
+                    }
+                  };
+
+                  return (
+                    <div
+                      key={String(a.id)}
+                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                          <Clock className="h-6 w-6 text-primary" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium">{a.patient || "Paciente"}</h4>
+                          <p className="text-sm text-muted-foreground">{a.condition}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs font-medium">{a.time}</span>
+                            {a.urgent && (
+                              <Badge variant="destructive" className="text-xs">
+                                Urgente
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <Badge variant={a.type === "videollamada" ? "default" : "secondary"}>
-                        {a.type}
-                      </Badge>
-                      <div className="flex gap-2 mt-2">
-                        <Button size="sm" variant="outline" onClick={() => navigate("/history")}>
-                          Ver Historial
+                      <div className="text-right space-y-2">
+                        <div className="flex gap-2 justify-end">
+                          <Badge variant={a.type === "videollamada" ? "default" : "secondary"}>
+                            {a.type}
+                          </Badge>
+                          {getStatusBadge(a.status)}
+                        </div>
+                        <Button size="sm" onClick={() => navigate("/appointments")}>
+                          Detalles
                         </Button>
-                        {a.type === "videollamada" && (
-                          <Button size="sm" onClick={() => navigate("/video-call")}>
-                            Iniciar
-                          </Button>
-                        )}
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
 
                 <Button
                   variant="outline"

@@ -3,6 +3,15 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
+import { Input } from "./ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
 import { ArrowLeft, Calendar, Clock, Video, Plus, MapPin, ArrowUpDown, ChevronLeft, ChevronRight, X, ChevronDown, ChevronUp, FileText, User, DollarSign, MessageSquare } from "lucide-react";
 import {
   useAllAppointments,
@@ -12,6 +21,7 @@ import {
   useCancelAppointment
 } from "../hooks/useAppointments";
 import { toast } from "sonner";
+import { api } from "../lib/api";
 
 type FilterType = "all" | "upcoming" | "past" | "cancelled";
 
@@ -21,6 +31,10 @@ export function MisCitas() {
   const [currentPage, setCurrentPage] = useState(1);
   const [order, setOrder] = useState<'asc' | 'desc'>('desc');
   const [expandedAppointmentId, setExpandedAppointmentId] = useState<string | null>(null);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [appointmentToCancel, setAppointmentToCancel] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [checkingVideoRoom, setCheckingVideoRoom] = useState<string | null>(null);
   const limit = 10;
 
   // Traer todas las citas y filtrar en el frontend por hora local
@@ -53,7 +67,12 @@ export function MisCitas() {
 
       const scheduledAt = parseUTCAsLocal(apt.scheduledAt);
 
-      if (scheduledAt >= now) {
+      // Calcular la hora de finalización de la cita
+      const durationMin = apt.durationMin || 30; // 30 minutos por defecto
+      const endAt = new Date(scheduledAt.getTime() + durationMin * 60000);
+
+      // La cita es próxima si aún no ha terminado
+      if (endAt > now) {
         upcoming.push(apt);
       } else {
         past.push(apt);
@@ -162,22 +181,27 @@ export function MisCitas() {
     }
   };
 
-  // Función para manejar la cancelación de una cita
-  const handleCancelAppointment = async (appointmentId: string) => {
-    const reason = prompt("¿Por qué deseas cancelar esta cita? (opcional)");
+  // Función para abrir el diálogo de cancelación
+  const handleCancelAppointment = (appointmentId: string) => {
+    setAppointmentToCancel(appointmentId);
+    setCancelReason("");
+    setShowCancelDialog(true);
+  };
 
-    if (reason === null) {
-      // Usuario canceló el prompt
-      return;
-    }
+  // Función para confirmar la cancelación
+  const confirmCancelAppointment = async () => {
+    if (!appointmentToCancel) return;
 
     try {
       await cancelAppointment.mutateAsync({
-        id: appointmentId,
-        cancelReason: reason || undefined,
+        id: appointmentToCancel,
+        cancelReason: cancelReason.trim() || undefined,
       });
 
       toast.success("Cita cancelada exitosamente");
+      setShowCancelDialog(false);
+      setAppointmentToCancel(null);
+      setCancelReason("");
     } catch (error: any) {
       toast.error("Error al cancelar la cita", {
         description: error.response?.data?.message || "Por favor, intenta nuevamente",
@@ -211,7 +235,38 @@ export function MisCitas() {
     setExpandedAppointmentId(expandedAppointmentId === appointmentId ? null : appointmentId);
   };
 
-  // Función para verificar si el paciente puede unirse a la videollamada
+  // Función para intentar unirse a la videollamada
+  const handleJoinVideoCall = async (appointmentId: string) => {
+    setCheckingVideoRoom(appointmentId);
+    try {
+      const response = await api.get(`/appointments/${appointmentId}/video/token`);
+
+      // Si obtenemos el token exitosamente, construir la URL a Vercel
+      if (response.data && response.data.token && response.data.roomName) {
+        const { token, roomName } = response.data;
+        // Construir la URL a tu aplicación de Vercel con los parámetros necesarios
+        const vercelUrl = `https://live-kit-meet-sable.vercel.app/?token=${encodeURIComponent(token)}&room=${encodeURIComponent(roomName)}`;
+        window.open(vercelUrl, '_blank');
+      } else if (response.data && response.data.url) {
+        // Fallback: si el backend devuelve una URL directa
+        window.open(response.data.url, '_blank');
+      } else {
+        // Si no hay suficientes datos, mostrar error
+        toast.error("No se puede unir a la videollamada", {
+          description: "Faltan datos de la sala de video.",
+        });
+      }
+    } catch (error: any) {
+      console.error("Error al obtener token de video:", error);
+      toast.error("No se puede unir a la videollamada", {
+        description: error.response?.data?.message || "El doctor aún no ha iniciado la sala. Intenta nuevamente en unos momentos.",
+      });
+    } finally {
+      setCheckingVideoRoom(null);
+    }
+  };
+
+  // Función para verificar si el paciente puede intentar unirse a la videollamada
   const canJoinVideoCall = (appointment: any) => {
     // Solo para citas online
     if (appointment.modality?.toLowerCase() !== 'online') {
@@ -222,14 +277,11 @@ export function MisCitas() {
     const scheduledAt = parseUTCAsLocal(appointment.scheduledAt);
     const fiveMinutesBefore = new Date(scheduledAt.getTime() - 5 * 60 * 1000);
 
-    // Verificar si la sala de video existe
-    const roomExists = appointment.videoRoomName != null;
-
     // Verificar si estamos dentro del tiempo permitido (5 minutos antes o después de la hora)
     const isWithinTimeWindow = now >= fiveMinutesBefore;
 
-    if (!roomExists && !isWithinTimeWindow) {
-      // Sala no existe y aún no es tiempo
+    if (!isWithinTimeWindow) {
+      // Aún no es tiempo
       const minutesUntilStart = Math.ceil((scheduledAt.getTime() - now.getTime()) / (60 * 1000));
       return {
         canJoin: false,
@@ -238,15 +290,7 @@ export function MisCitas() {
       };
     }
 
-    if (!roomExists && isWithinTimeWindow) {
-      // Sala no existe pero ya es tiempo - el doctor debe habilitarla
-      return {
-        canJoin: false,
-        reason: 'waiting_doctor'
-      };
-    }
-
-    // Sala existe - puede unirse
+    // Ya es tiempo - puede intentar unirse
     return { canJoin: true };
   };
 
@@ -415,15 +459,17 @@ export function MisCitas() {
                           {getStatusBadge(appointment)}
                           {activeFilter === "upcoming" && isOnline && (() => {
                             const joinStatus = canJoinVideoCall(appointment);
+                            const isChecking = checkingVideoRoom === appointment.id;
 
                             if (joinStatus.canJoin) {
                               return (
                                 <Button
                                   className="bg-primary hover:bg-primary/90"
-                                  onClick={() => navigate(`/video-call/${appointment.id}`)}
+                                  onClick={() => handleJoinVideoCall(appointment.id)}
+                                  disabled={isChecking}
                                 >
                                   <Video className="h-4 w-4 mr-2" />
-                                  Unirse
+                                  {isChecking ? "Verificando..." : "Unirse"}
                                 </Button>
                               );
                             }
@@ -434,24 +480,10 @@ export function MisCitas() {
                                   disabled
                                   variant="outline"
                                   className="cursor-not-allowed"
-                                  title={`La sala estará disponible ${joinStatus.minutesUntilStart} minutos antes de la cita`}
+                                  title={`Podrás unirte 5 minutos antes de la cita`}
                                 >
                                   <Clock className="h-4 w-4 mr-2" />
                                   {joinStatus.minutesUntilStart}min
-                                </Button>
-                              );
-                            }
-
-                            if (joinStatus.reason === 'waiting_doctor') {
-                              return (
-                                <Button
-                                  disabled
-                                  variant="outline"
-                                  className="cursor-not-allowed animate-pulse"
-                                  title="Esperando que el doctor habilite la sala"
-                                >
-                                  <Clock className="h-4 w-4 mr-2" />
-                                  Esperando...
                                 </Button>
                               );
                             }
@@ -626,6 +658,62 @@ export function MisCitas() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Diálogo de confirmación de cancelación */}
+      <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancelar Cita</DialogTitle>
+            <DialogDescription>
+              ¿Estás seguro de que deseas cancelar esta cita? Esta acción no se puede deshacer.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label htmlFor="cancel-reason" className="text-sm font-medium text-foreground">
+                Motivo de cancelación (opcional)
+              </label>
+              <Input
+                id="cancel-reason"
+                placeholder="Ej: Conflicto de horario, problemas de salud, etc."
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                className="w-full"
+              />
+              <p className="text-xs text-muted-foreground">
+                Proporcionar un motivo ayuda al médico a entender mejor tu situación.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowCancelDialog(false);
+                setAppointmentToCancel(null);
+                setCancelReason("");
+              }}
+              disabled={cancelAppointment.isPending}
+            >
+              No, mantener cita
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmCancelAppointment}
+              disabled={cancelAppointment.isPending}
+            >
+              {cancelAppointment.isPending ? (
+                <>Cancelando...</>
+              ) : (
+                <>
+                  <X className="h-4 w-4 mr-2" />
+                  Sí, cancelar cita
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

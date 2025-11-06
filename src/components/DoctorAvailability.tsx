@@ -26,6 +26,7 @@ interface AvailabilitySlot {
   CreatedAt: string;
   UpdatedAt: string;
   IsBooked?: boolean; // Indica si el slot ya tiene una cita agendada
+  AppointmentStatus?: string; // Estado de la cita asociada (PENDING, SCHEDULED, CONFIRMED, COMPLETED, CANCELLED, NO_SHOW, RESCHEDULED)
 }
 
 // Obtener disponibilidad del doctor
@@ -343,7 +344,14 @@ export function DoctorAvailability() {
                     const start = parseUTCAsLocal(slot.StartAt);
                     const end = parseUTCAsLocal(slot.EndAt);
                     const durationMins = Math.round((end.getTime() - start.getTime()) / 60000);
-                    const isBooked = slot.IsBooked || false;
+
+                    // Un slot está agendado si:
+                    // 1. Tiene IsBooked = true Y el estado no es CANCELLED
+                    // 2. O tiene un AppointmentStatus definido que no sea CANCELLED
+                    const isBooked = (slot.IsBooked === true || slot.AppointmentStatus) && slot.AppointmentStatus !== 'CANCELLED';
+
+                    // Debug: descomentar para ver los valores
+                    // console.log('Slot:', { Id: slot.Id, IsBooked: slot.IsBooked, AppointmentStatus: slot.AppointmentStatus, isBooked });
 
                     return (
                       <Card key={slot.Id} className={`border-l-4 ${isBooked ? 'border-l-blue-500' : 'border-l-green-500'}`}>

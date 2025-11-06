@@ -13,3 +13,13 @@ export async function getMyConversations(): Promise<ConversationApi[]> {
   const { data } = await api.get<ConversationApi[]>("/conversations/mine");
   return Array.isArray(data) ? data : [];
 }
+
+/**
+ * Obtiene o crea una conversación única con un doctor específico.
+ * El backend debe manejar la lógica de retornar una conversación existente
+ * o crear una nueva si no existe.
+ */
+export async function getOrCreateConversationWithDoctor(doctorId: string | number): Promise<ConversationApi> {
+  const { data } = await api.post<ConversationApi>(`/conversations/with-doctor/${doctorId}`);
+  return data;
+}

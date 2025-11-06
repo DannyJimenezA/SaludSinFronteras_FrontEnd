@@ -186,6 +186,24 @@ export function PatientDashboard({
                     year: 'numeric'
                   });
 
+                  // Función para obtener el badge del estado
+                  const getStatusBadge = (status: string) => {
+                    switch (status) {
+                      case "PENDING":
+                        return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300">Pendiente</Badge>;
+                      case "CONFIRMED":
+                        return <Badge className="bg-blue-100 text-blue-800 border-blue-300">Confirmada</Badge>;
+                      case "COMPLETED":
+                        return <Badge className="bg-green-100 text-green-800 border-green-300">Completada</Badge>;
+                      case "CANCELLED":
+                        return <Badge className="bg-red-100 text-red-800 border-red-300">Cancelada</Badge>;
+                      case "NO_SHOW":
+                        return <Badge className="bg-gray-100 text-gray-800 border-gray-300">No asistió</Badge>;
+                      default:
+                        return <Badge variant="outline">{status}</Badge>;
+                    }
+                  };
+
                   return (
                     <div
                       key={appointment.id}
@@ -212,9 +230,7 @@ export function PatientDashboard({
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
-                          Pendiente
-                        </Badge>
+                        {getStatusBadge(appointment.status)}
                         <Button
                           className="bg-primary hover:bg-primary/90"
                           onClick={() => navigate(`/mis-citas`)}

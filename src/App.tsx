@@ -4,9 +4,13 @@ import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-
 import { User } from "./types/user";
 import { getMe } from "./services/users";
 import { AuthProvider } from "./contexts/AuthContext";
+
+import { LandingPageNew } from "./components/LandingPageNew";
+
 import { Toaster } from "sonner";
 import "@livekit/components-styles";
 import { LandingPage } from "./components/LandingPage";
+
 import { WelcomeLogin } from "./components/WelcomeLogin";
 import { ForgotPassword } from "./components/ForgotPassword";
 import { VerifyEmail } from "./components/VerifyEmail";
@@ -38,6 +42,7 @@ import { AgendarCitaDoctor } from "./components/AgendarCitaDoctor";
 import { AdminSpecialties } from "./components/AdminSpecialties";
 import { DoctorAppointments } from "./components/DoctorAppointments";
 import { DoctorAvailability } from "./components/DoctorAvailability";
+import { MensajesDoctor } from "./components/MensajesDoctor";
 
 type UserType = "patient" | "doctor" | "admin" | null;
 
@@ -130,7 +135,7 @@ export default function App() {
       <div className="min-h-screen bg-background">
         <Routes>
           {/* Ruta principal - Landing Page */}
-          <Route path="/" element={<LandingPage />} />
+          <Route path="/" element={<LandingPageNew />} />
 
           {/* Ruta pública - Login/Welcome */}
           <Route path="/login" element={<WelcomeLogin onLogin={handleLogin} />} />
@@ -358,22 +363,22 @@ export default function App() {
           }
         />
 
-        {/* Mensajes - página básica */}
+        {/* Mensajes para paciente */}
         <Route
           path="/mensajes"
           element={
-            <ProtectedRoute isAllowed={currentUser !== null}>
+            <ProtectedRoute isAllowed={currentUser === "patient"}>
               <Mensajes />
             </ProtectedRoute>
           }
         />
 
-        {/* Alias para mensajes */}
+        {/* Mensajes para doctor */}
         <Route
           path="/messages"
           element={
-            <ProtectedRoute isAllowed={currentUser !== null}>
-              <Mensajes />
+            <ProtectedRoute isAllowed={currentUser === "doctor"}>
+              <MensajesDoctor />
             </ProtectedRoute>
           }
         />
