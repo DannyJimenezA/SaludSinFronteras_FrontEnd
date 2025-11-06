@@ -135,23 +135,41 @@ export function ForgotPassword() {
               </div>
 
               {/* Botón enviar */}
-              <Button
-                type="submit"
-                className="w-full bg-teal-600 hover:bg-teal-700"
-                disabled={loading}
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Enviando...
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4 mr-2" />
-                    Enviar enlace de recuperación
-                  </>
-                )}
-              </Button>
+              <div className="space-y-4 mt-6">
+                <button
+                  type="submit"
+                  style={{
+                    backgroundColor: '#0f766e',
+                    color: 'white',
+                    width: '100%',
+                    padding: '12px 16px',
+                    borderRadius: '6px',
+                    fontWeight: '500',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    transition: 'background-color 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#0d5f58'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#0f766e'}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <span>Enviando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-5 w-5" />
+                      <span>Enviar Correo de Recuperación</span>
+                    </>
+                  )}
+                </button>
+              </div>
 
               {/* Información adicional */}
               <div className="pt-4 border-t">
