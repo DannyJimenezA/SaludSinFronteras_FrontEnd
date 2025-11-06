@@ -21,6 +21,7 @@ import { useMe } from "../hooks/useUsers";
 import { updateMe, changePassword } from "../services/users";
 import { COUNTRIES, getCountryById } from "../constants/countries";
 import { getMyDoctorProfile, updateMyDoctorProfile, assignMySpecialties, getAllSpecialties, type DoctorProfile, type Specialty } from "../services/doctors";
+import { useMyVerificationStatus } from "../hooks/useVerification";
 import { api } from "../lib/api";
 
 import {
@@ -58,6 +59,9 @@ export function DoctorSettings({ onLogout }: DoctorSettingsProps) {
 
   // Perfil
   const { data: me, isLoading: loadingMe, isError } = useMe();
+
+  // Estado de verificación con documentos
+  const { data: verificationStatus } = useMyVerificationStatus();
   const [saving, setSaving] = useState(false);
   const [birthDate, setBirthDate] = useState<string>("");
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -461,6 +465,9 @@ export function DoctorSettings({ onLogout }: DoctorSettingsProps) {
       });
 
       alert("¡Documentos enviados exitosamente! Tu solicitud de verificación está siendo revisada por nuestro equipo. Recibirás una respuesta en un plazo de 48 horas.");
+
+      // Limpiar los documentos locales ya que fueron enviados
+      setVerificationDocuments([]);
 
       // Recargar el perfil del doctor para actualizar el estado de verificación
       const profile = await getMyDoctorProfile();
@@ -1253,58 +1260,97 @@ export function DoctorSettings({ onLogout }: DoctorSettingsProps) {
                   )}
 
                   {/* Lista de Documentos Subidos */}
-                  {verificationDocuments.length > 0 && (
+                  {/* Mostrar documentos locales (antes de enviar) o documentos del backend (después de enviar) */}
+                  {(verificationDocuments.length > 0 || (verificationStatus?.CertificationDocuments && verificationStatus.CertificationDocuments.length > 0)) && (
                     <div className="space-y-3">
                       <h4 className="font-medium text-sm">Documentos subidos</h4>
                       <div className="space-y-2">
-                        {verificationDocuments.map((doc) => (
-                          <div
-                            key={doc.id}
-                            className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors"
-                          >
-                            <div className="flex items-center gap-3 flex-1 min-w-0">
-                              <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium truncate">{doc.name}</p>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <Badge variant="outline" className="text-xs">
-                                    {getDocumentTypeLabel(doc.type)}
-                                  </Badge>
-                                  <span className="text-xs text-muted-foreground">
-                                    {new Date(doc.uploadedAt).toLocaleDateString('es-ES')}
-                                  </span>
+                        {/* Si hay documentos en el backend (ya enviados), mostrar esos */}
+                        {verificationStatus?.CertificationDocuments && verificationStatus.CertificationDocuments.length > 0 ? (
+                          verificationStatus.CertificationDocuments.map((url, idx) => (
+                            <div
+                              key={idx}
+                              className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors"
+                            >
+                              <div className="flex items-center gap-3 flex-1 min-w-0">
+                                <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium">Documento {idx + 1}</p>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <Badge variant="outline" className="text-xs">
+                                      Documento de Verificación
+                                    </Badge>
+                                    {verificationStatus.SubmittedAt && (
+                                      <span className="text-xs text-muted-foreground">
+                                        {new Date(verificationStatus.SubmittedAt).toLocaleDateString('es-ES')}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                              {getDocumentStatusBadge(doc.status)}
-                              {doc.url && (
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                {getDocumentStatusBadge(verificationStatus.VerificationStatus || 'pending')}
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => window.open(doc.url, '_blank')}
+                                  onClick={() => window.open(url, '_blank')}
                                 >
                                   <Download className="h-4 w-4" />
                                 </Button>
-                              )}
-                              {/* Solo mostrar botón de eliminar si NO está verificado */}
-                              {doctorProfile?.verificationStatus !== "approved" && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleDeleteDocument(doc.id)}
-                                >
-                                  <Trash2 className="h-4 w-4 text-red-600" />
-                                </Button>
-                              )}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          ))
+                        ) : (
+                          /* Si no hay documentos en el backend, mostrar los locales */
+                          verificationDocuments.map((doc) => (
+                            <div
+                              key={doc.id}
+                              className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors"
+                            >
+                              <div className="flex items-center gap-3 flex-1 min-w-0">
+                                <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium truncate">{doc.name}</p>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <Badge variant="outline" className="text-xs">
+                                      {getDocumentTypeLabel(doc.type)}
+                                    </Badge>
+                                    <span className="text-xs text-muted-foreground">
+                                      {new Date(doc.uploadedAt).toLocaleDateString('es-ES')}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                {getDocumentStatusBadge(doc.status)}
+                                {doc.url && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => window.open(doc.url, '_blank')}
+                                  >
+                                    <Download className="h-4 w-4" />
+                                  </Button>
+                                )}
+                                {/* Solo mostrar botón de eliminar si NO está verificado */}
+                                {doctorProfile?.verificationStatus !== "approved" && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleDeleteDocument(doc.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4 text-red-600" />
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          ))
+                        )}
                       </div>
                     </div>
                   )}
 
-                  {verificationDocuments.length === 0 && (
+                  {verificationDocuments.length === 0 && (!verificationStatus?.CertificationDocuments || verificationStatus.CertificationDocuments.length === 0) && (
                     <div className="text-center py-8 text-muted-foreground">
                       <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
                       <p className="text-sm">

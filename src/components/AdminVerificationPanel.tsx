@@ -4,6 +4,7 @@
  */
 
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -44,11 +45,13 @@ import {
   GraduationCap,
   Award,
   Globe,
+  ArrowLeft,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { PendingDoctorVerification, VerificationResponseDto } from '../types/verification';
 
 export function AdminVerificationPanel() {
+  const navigate = useNavigate();
   const [selectedDoctorId, setSelectedDoctorId] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -362,6 +365,12 @@ export function AdminVerificationPanel() {
   return (
     <div className="container mx-auto p-6">
       <div className="mb-6">
+        <div className="flex items-center gap-4 mb-4">
+          <Button variant="outline" onClick={() => navigate('/admin-panel')}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Volver
+          </Button>
+        </div>
         <h1 className="text-3xl font-bold mb-2">Panel de Verificaciones</h1>
         <p className="text-muted-foreground">
           Gestiona las solicitudes de verificación de doctores
