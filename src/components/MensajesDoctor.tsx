@@ -3,13 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { ArrowLeft, MessageSquare, Send, Loader2, User, Stethoscope } from "lucide-react";
+import { ArrowLeft, MessageSquare, Send, Loader2, User } from "lucide-react";
 import {
   useConversationMessages,
   useSendMessage,
-  useGetOrCreateConversationWithDoctor,
+  useGetOrCreateConversationWithPatient,
 } from "../hooks/useConversations";
-import { useDoctorsWithAppointments } from "../hooks/useDoctorsWithAppointments";
+import { usePatientsWithAppointments } from "../hooks/usePatientsWithAppointments";
 import { toast } from "sonner";
 import { getToken } from "../lib/api";
 
@@ -26,18 +26,18 @@ function getUserIdFromToken(): string | null {
   }
 }
 
-export function Mensajes() {
+export function MensajesDoctor() {
   const navigate = useNavigate();
-  const [selectedDoctorId, setSelectedDoctorId] = useState<string | number | null>(null);
+  const [selectedPatientId, setSelectedPatientId] = useState<string | number | null>(null);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [messageText, setMessageText] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Obtener doctores con los que el paciente tiene citas
-  const { data: doctors, isLoading: doctorsLoading } = useDoctorsWithAppointments();
+  // Obtener pacientes con los que el doctor tiene citas
+  const { data: patients, isLoading: patientsLoading } = usePatientsWithAppointments();
 
-  // Obtener o crear conversación con el doctor seleccionado
-  const getOrCreateConversation = useGetOrCreateConversationWithDoctor();
+  // Obtener o crear conversación con el paciente seleccionado
+  const getOrCreateConversation = useGetOrCreateConversationWithPatient();
 
   // Obtener mensajes de la conversación actual
   const { data: messages, isLoading: messagesLoading } = useConversationMessages(selectedConversationId);
@@ -52,20 +52,20 @@ export function Mensajes() {
     scrollToBottom();
   }, [messages]);
 
-  // Manejar selección de doctor
-  const handleSelectDoctor = async (doctorId: string | number) => {
-    setSelectedDoctorId(doctorId);
+  // Manejar selección de paciente
+  const handleSelectPatient = async (patientId: string | number) => {
+    setSelectedPatientId(patientId);
     setSelectedConversationId(null);
 
     try {
-      // Obtener o crear conversación única con el doctor
-      const conversation = await getOrCreateConversation.mutateAsync(doctorId);
+      // Obtener o crear conversación única con el paciente
+      const conversation = await getOrCreateConversation.mutateAsync(patientId);
       setSelectedConversationId(conversation.id);
     } catch (error: any) {
       toast.error("Error al cargar la conversación", {
         description: error.response?.data?.message || "Por favor, intenta nuevamente",
       });
-      setSelectedDoctorId(null);
+      setSelectedPatientId(null);
     }
   };
 
@@ -92,7 +92,7 @@ export function Mensajes() {
     }
   };
 
-  const selectedDoctor = doctors?.find(d => d.id === selectedDoctorId);
+  const selectedPatient = patients?.find(p => p.id === selectedPatientId);
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -107,69 +107,63 @@ export function Mensajes() {
           </Button>
           <div>
             <h1 className="text-3xl font-bold text-foreground">Mensajes</h1>
-            <p className="text-muted-foreground mt-1">Conversaciones con tus médicos</p>
+            <p className="text-muted-foreground mt-1">Conversaciones con tus pacientes</p>
           </div>
         </div>
 
-        {/* Lista de doctores y chat */}
+        {/* Lista de pacientes y chat */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Lista de doctores */}
+          {/* Lista de pacientes */}
           <Card className="lg:col-span-1">
             <CardHeader>
               <CardTitle className="text-lg text-foreground">
-                Mis Médicos
-                {doctors && doctors.length > 0 && (
+                Mis Pacientes
+                {patients && patients.length > 0 && (
                   <span className="text-sm font-normal text-muted-foreground ml-2">
-                    ({doctors.length})
+                    ({patients.length})
                   </span>
                 )}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 max-h-[600px] overflow-y-auto">
-              {doctorsLoading ? (
+              {patientsLoading ? (
                 <div className="text-center py-12">
                   <Loader2 className="h-8 w-8 text-muted-foreground mx-auto mb-3 animate-spin" />
-                  <p className="text-muted-foreground text-sm">Cargando médicos...</p>
+                  <p className="text-muted-foreground text-sm">Cargando pacientes...</p>
                 </div>
-              ) : !doctors || doctors.length === 0 ? (
+              ) : !patients || patients.length === 0 ? (
                 <div className="text-center py-12">
-                  <Stethoscope className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-muted-foreground text-sm">No tienes médicos aún</p>
+                  <User className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-muted-foreground text-sm">No tienes pacientes aún</p>
                   <p className="text-xs text-muted-foreground mt-2">
-                    Los médicos aparecerán aquí después de agendar tu primera cita
+                    Los pacientes aparecerán aquí después de tu primera cita
                   </p>
-                  <Button
-                    className="mt-4"
-                    onClick={() => navigate("/nueva-cita")}
-                  >
-                    Agendar cita
-                  </Button>
                 </div>
               ) : (
-                doctors.map((doctor) => (
+                patients.map((patient) => (
                   <div
-                    key={doctor.id}
+                    key={patient.id}
                     className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                      selectedDoctorId === doctor.id
+                      selectedPatientId === patient.id
                         ? "bg-primary/10 border-2 border-primary"
                         : "bg-accent hover:bg-accent/80 border-2 border-transparent"
                     }`}
-                    onClick={() => handleSelectDoctor(doctor.id)}
+                    onClick={() => handleSelectPatient(patient.id)}
                   >
                     <div className="flex items-start gap-3">
                       <div className="p-2 bg-primary/10 rounded-full">
-                        <Stethoscope className="h-5 w-5 text-primary" />
+                        <User className="h-5 w-5 text-primary" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm text-foreground truncate">
-                          {doctor.name}
+                          {patient.name}
                         </p>
-                        <p className="text-xs text-muted-foreground">
-                          {doctor.specialty}
+                        <p className="text-xs text-muted-foreground truncate">
+                          {patient.email}
                         </p>
                         <div className="flex items-center gap-2 mt-1">
                           <Badge variant="secondary" className="text-xs">
-                            {doctor.appointmentCount} {doctor.appointmentCount === 1 ? 'cita' : 'citas'}
+                            {patient.appointmentCount} {patient.appointmentCount === 1 ? 'cita' : 'citas'}
                           </Badge>
                         </div>
                       </div>
@@ -184,18 +178,18 @@ export function Mensajes() {
           <Card className="lg:col-span-2">
             <CardHeader className="border-b">
               <CardTitle className="text-lg text-foreground">
-                {selectedDoctor
-                  ? `${selectedDoctor.name} - ${selectedDoctor.specialty}`
-                  : "Selecciona un médico"}
+                {selectedPatient
+                  ? selectedPatient.name
+                  : "Selecciona un paciente"}
               </CardTitle>
             </CardHeader>
             <CardContent className="h-[600px] flex flex-col p-0">
-              {!selectedDoctorId ? (
+              {!selectedPatientId ? (
                 <div className="flex-1 flex items-center justify-center">
                   <div className="text-center">
                     <MessageSquare className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
                     <p className="text-muted-foreground">
-                      Selecciona un médico para iniciar una conversación
+                      Selecciona un paciente para iniciar una conversación
                     </p>
                   </div>
                 </div>
@@ -235,40 +229,39 @@ export function Mensajes() {
                             className={`flex ${isOwnMessage ? "justify-end" : "justify-start"}`}
                           >
                             <div
-                              className={`max-w-[70%] rounded-lg p-3 ${
-                                isOwnMessage
-                                  ? "bg-green-600 text-white"
-                                  : "bg-accent text-foreground"
-                              }`}
+                              className={`max-w-[70%] rounded-lg p-3`}
+                              style={{
+                                backgroundColor: isOwnMessage ? '#2563eb' : '#f3f4f6',
+                                color: isOwnMessage ? '#ffffff' : '#000000'
+                              }}
                             >
                               {!isOwnMessage && (
-                                <p className="text-xs font-semibold mb-1 opacity-70">
+                                <p className="text-xs font-semibold mb-1" style={{ opacity: 0.7 }}>
                                   {message.senderName}
                                 </p>
                               )}
 
                               {/* Mostrar traducción si existe, sino mostrar mensaje original */}
-                              <p className="text-sm whitespace-pre-wrap break-words">
+                              <p className="text-sm whitespace-pre-wrap break-words" style={{ color: 'inherit' }}>
                                 {hasTranslation ? message.translation : message.content}
                               </p>
 
                               {/* Mostrar mensaje original en pequeño si hay traducción */}
                               {hasTranslation && (
                                 <p
-                                  className={`text-xs mt-2 pt-2 border-t italic whitespace-pre-wrap break-words ${
-                                    isOwnMessage
-                                      ? "text-white/60 border-white/20"
-                                      : "text-muted-foreground/60 border-border/30"
-                                  }`}
+                                  className="text-xs mt-2 pt-2 border-t italic whitespace-pre-wrap break-words"
+                                  style={{
+                                    color: isOwnMessage ? 'rgba(255,255,255,0.6)' : 'rgba(100,100,100,0.6)',
+                                    borderColor: isOwnMessage ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)'
+                                  }}
                                 >
                                   {message.content}
                                 </p>
                               )}
 
                               <p
-                                className={`text-xs mt-1 ${
-                                  isOwnMessage ? "text-white/70" : "text-muted-foreground"
-                                }`}
+                                className="text-xs mt-1"
+                                style={{ opacity: 0.7 }}
                               >
                                 {new Date(message.createdAt).toLocaleTimeString("es-ES", {
                                   hour: "2-digit",

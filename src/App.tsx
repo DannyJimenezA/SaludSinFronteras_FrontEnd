@@ -42,6 +42,7 @@ import { AgendarCitaDoctor } from "./components/AgendarCitaDoctor";
 import { AdminSpecialties } from "./components/AdminSpecialties";
 import { DoctorAppointments } from "./components/DoctorAppointments";
 import { DoctorAvailability } from "./components/DoctorAvailability";
+import { MensajesDoctor } from "./components/MensajesDoctor";
 
 type UserType = "patient" | "doctor" | "admin" | null;
 
@@ -362,22 +363,22 @@ export default function App() {
           }
         />
 
-        {/* Mensajes - página básica */}
+        {/* Mensajes para paciente */}
         <Route
           path="/mensajes"
           element={
-            <ProtectedRoute isAllowed={currentUser !== null}>
+            <ProtectedRoute isAllowed={currentUser === "patient"}>
               <Mensajes />
             </ProtectedRoute>
           }
         />
 
-        {/* Alias para mensajes */}
+        {/* Mensajes para doctor */}
         <Route
           path="/messages"
           element={
-            <ProtectedRoute isAllowed={currentUser !== null}>
-              <Mensajes />
+            <ProtectedRoute isAllowed={currentUser === "doctor"}>
+              <MensajesDoctor />
             </ProtectedRoute>
           }
         />

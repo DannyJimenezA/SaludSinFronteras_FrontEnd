@@ -30,6 +30,7 @@ export interface DoctorProfileApi {
   Specialty?: string | null;
   Bio?: string | null;
   LicenseNumber?: string | null;
+  LicenseCountryId?: number | null;
   YearsExperience?: number | null;
   VerificationStatus?: string | null;
   Specialties?: Specialty[];
@@ -41,16 +42,17 @@ export interface DoctorProfile {
   specialty?: string | null;
   bio?: string | null;
   licenseNumber?: string | null;
+  licenseCountryId?: number | null;
   yearsExperience?: number | null;
   verificationStatus?: string | null;
   specialties?: Specialty[];
 }
 
 export interface UpdateDoctorProfilePayload {
-  licenseNumber?: string;
+  licenseNumber: string; // Requerido por backend
+  licenseCountryId: number; // Requerido por backend
   yearsExperience?: number;
   bio?: string;
-  specialtyIds?: string[];
 }
 
 // Helper para mapear de PascalCase a camelCase
@@ -61,6 +63,7 @@ function mapDoctorProfile(data: DoctorProfileApi): DoctorProfile {
     specialty: data.Specialty,
     bio: data.Bio,
     licenseNumber: data.LicenseNumber,
+    licenseCountryId: data.LicenseCountryId,
     yearsExperience: data.YearsExperience,
     verificationStatus: data.VerificationStatus,
     specialties: data.Specialties,
@@ -84,13 +87,27 @@ export async function getMyDoctorProfile(): Promise<DoctorProfile> {
 
 // Actualizar perfil profesional del doctor
 export async function updateMyDoctorProfile(payload: UpdateDoctorProfilePayload): Promise<DoctorProfile> {
-  const dto: Record<string, any> = {};
+  const dto: Record<string, any> = {
+    LicenseNumber: payload.licenseNumber,
+    LicenseCountryId: payload.licenseCountryId,
+  };
 
-  if (payload.licenseNumber !== undefined) dto.LicenseNumber = payload.licenseNumber;
   if (payload.yearsExperience !== undefined) dto.YearsExperience = payload.yearsExperience;
   if (payload.bio !== undefined) dto.Bio = payload.bio;
-  if (payload.specialtyIds !== undefined) dto.SpecialtyIds = payload.specialtyIds;
 
   const { data } = await api.patch<DoctorProfileApi>("/doctors/me/profile", dto);
   return mapDoctorProfile(data);
+}
+
+// Asignar especialidades al doctor
+export async function assignMySpecialties(specialtyIds: string[]): Promise<void> {
+  await api.post("/doctors/me/specialties", {
+    SpecialtyIds: specialtyIds.map(id => Number(id)),
+  });
+}
+
+// Obtener todas las especialidades disponibles
+export async function getAllSpecialties(): Promise<Specialty[]> {
+  const { data } = await api.get("/specialties");
+  return data;
 }

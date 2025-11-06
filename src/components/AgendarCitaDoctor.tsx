@@ -68,16 +68,23 @@ export function AgendarCitaDoctor() {
     currentLocalTime: new Date().toLocaleString('es-CR', { timeZone: 'America/Costa_Rica' })
   });
 
-  // Filtrar slots por fecha seleccionada
+  // Filtrar slots por fecha seleccionada y excluir horarios que ya pasaron
   const filteredSlotsByDate = data?.slots.filter((slot) => {
     const slotDate = parseUTCAsLocal(slot.startAt);
     const filterDate = new Date(selectedDate + 'T00:00:00');
+    const now = new Date();
 
-    return (
+    // Verificar que coincide con la fecha seleccionada
+    const matchesDate = (
       slotDate.getFullYear() === filterDate.getFullYear() &&
       slotDate.getMonth() === filterDate.getMonth() &&
       slotDate.getDate() === filterDate.getDate()
     );
+
+    // Verificar que el horario no haya pasado
+    const isInFuture = slotDate > now;
+
+    return matchesDate && isInFuture;
   }) || [];
 
   // Hook para crear la cita

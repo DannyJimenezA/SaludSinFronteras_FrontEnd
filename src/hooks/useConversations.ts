@@ -82,9 +82,9 @@ export function useSendMessage() {
       );
       return response.data;
     },
-    onSuccess: (_, variables) => {
-      // Invalidar mensajes de la conversación específica
-      queryClient.invalidateQueries({
+    onSuccess: async (_, variables) => {
+      // Refetch inmediato de mensajes de la conversación específica
+      await queryClient.refetchQueries({
         queryKey: ["conversations", variables.conversationId, "messages"],
       });
       // Invalidar lista de conversaciones para actualizar último mensaje
@@ -102,6 +102,49 @@ export function useCreateConversationFromAppointment() {
         `/conversations/from-appointment/${appointmentId}`
       );
       return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["conversations", "mine"] });
+    },
+  });
+}
+
+/**
+ * Hook para obtener o crear una conversación única con un doctor específico.
+ * El backend debe verificar si ya existe una conversación entre el paciente y el doctor,
+ * y retornar la existente o crear una nueva.
+ */
+export function useGetOrCreateConversationWithDoctor() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (doctorId: string | number) => {
+      const response = await api.post(
+        `/conversations/with-doctor/${doctorId}`
+      );
+      return response.data as Conversation;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["conversations", "mine"] });
+    },
+  });
+}
+
+/**
+ * Hook para obtener o crear una conversación única con un paciente específico.
+ * Similar al anterior pero para el doctor.
+ * El backend debe verificar si ya existe una conversación entre el doctor y el paciente,
+ * y retornar la existente o crear una nueva.
+ */
+export function useGetOrCreateConversationWithPatient() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (patientId: string | number) => {
+      const response = await api.post(
+        `/conversations/with-patient/${patientId}`
+      );
+      return response.data as Conversation;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["conversations", "mine"] });
