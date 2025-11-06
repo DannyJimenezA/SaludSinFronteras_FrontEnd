@@ -246,10 +246,10 @@ export function MisCitas() {
         const { token, roomName } = response.data;
         // Construir la URL a tu aplicación de Vercel con los parámetros necesarios
         const vercelUrl = `https://live-kit-meet-sable.vercel.app/?token=${encodeURIComponent(token)}&room=${encodeURIComponent(roomName)}`;
-        window.location.href = vercelUrl;
+        window.open(vercelUrl, '_blank');
       } else if (response.data && response.data.url) {
         // Fallback: si el backend devuelve una URL directa
-        window.location.href = response.data.url;
+        window.open(response.data.url, '_blank');
       } else {
         // Si no hay suficientes datos, mostrar error
         toast.error("No se puede unir a la videollamada", {

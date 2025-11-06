@@ -217,10 +217,11 @@ export function DoctorAppointments() {
         const { token, roomName } = response.data;
         // Construir la URL a tu aplicación de Vercel con los parámetros necesarios
         const vercelUrl = `https://live-kit-meet-sable.vercel.app/?token=${encodeURIComponent(token)}&room=${encodeURIComponent(roomName)}`;
-        window.location.href = vercelUrl;
+        // Abrir en nueva pestaña
+        window.open(vercelUrl, '_blank');
       } else if (response.data && response.data.url) {
         // Fallback: si el backend devuelve una URL directa
-        window.location.href = response.data.url;
+        window.open(response.data.url, '_blank');
       } else {
         // Si no hay suficientes datos, mostrar error
         toast.error("No se puede unir a la videollamada", {
@@ -255,14 +256,27 @@ export function DoctorAppointments() {
 
     // Calcular la hora de finalización de la cita
     const durationMin = appointment.durationMin || 30;
-    const endAt = new Date(scheduledAt.getTime() + durationMin * 60000);
+    const endAt = new Date(scheduledAt.getTime() + durationMin * 60 * 1000);
 
-    // Verificar si estamos dentro del tiempo permitido (5 minutos antes hasta que termine la cita)
-    const isWithinTimeWindow = now >= fiveMinutesBefore && now <= endAt;
+    // Debug: descomentar para ver los tiempos
+    // console.log('Video call times:', {
+    //   now: now.toLocaleTimeString(),
+    //   scheduledAt: scheduledAt.toLocaleTimeString(),
+    //   fiveMinutesBefore: fiveMinutesBefore.toLocaleTimeString(),
+    //   endAt: endAt.toLocaleTimeString(),
+    //   durationMin,
+    //   nowTime: now.getTime(),
+    //   fiveMinutesBeforeTime: fiveMinutesBefore.getTime(),
+    //   endAtTime: endAt.getTime(),
+    //   isBefore: now < fiveMinutesBefore,
+    //   isAfter: now > endAt,
+    //   isInWindow: now >= fiveMinutesBefore && now <= endAt
+    // });
 
+    // Si aún no son 5 minutos antes, mostrar contador
     if (now < fiveMinutesBefore) {
-      // Aún no es tiempo
-      const minutesUntilStart = Math.ceil((scheduledAt.getTime() - now.getTime()) / (60 * 1000));
+      const minutesUntilStart = Math.ceil((fiveMinutesBefore.getTime() - now.getTime()) / (60 * 1000));
+      // console.log('Too early, minutes until start:', minutesUntilStart);
       return {
         canJoin: false,
         reason: 'too_early',
@@ -270,12 +284,14 @@ export function DoctorAppointments() {
       };
     }
 
+    // Si la cita ya terminó, ocultar el botón
     if (now > endAt) {
-      // La cita ya terminó
+      // console.log('Appointment finished');
       return { canJoin: false, reason: 'finished' };
     }
 
-    // Ya es tiempo - puede unirse
+    // Ya es tiempo - puede unirse (desde 5 minutos antes hasta que termine)
+    // console.log('Can join now!');
     return { canJoin: true };
   };
 
@@ -444,7 +460,7 @@ export function DoctorAppointments() {
                             return (
                               <Button
                                 size="sm"
-                                className="bg-blue-600 hover:bg-blue-700"
+                                className="bg-primary hover:bg-primary/90"
                                 onClick={() => handleJoinVideoCall(apt.id)}
                                 disabled={isChecking}
                               >
@@ -577,7 +593,7 @@ export function DoctorAppointments() {
                                     return (
                                       <Button
                                         size="sm"
-                                        className="gap-2 bg-blue-600 hover:bg-blue-700"
+                                        className="gap-2 bg-primary hover:bg-primary/90"
                                         onClick={() => handleJoinVideoCall(apt.id)}
                                         disabled={isChecking}
                                       >
