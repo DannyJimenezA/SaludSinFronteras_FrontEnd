@@ -382,8 +382,11 @@ export function AdminSettings({ onLogout }: AdminSettingsProps) {
 
   async function loadSpecialties() {
     try {
+      console.log('Iniciando carga de especialidades...');
       setLoadingSpecialties(true);
       const specialtiesData = await listSpecialties();
+      console.log('Especialidades recibidas:', specialtiesData);
+      console.log('Número de especialidades:', specialtiesData?.length);
       setSpecialties(specialtiesData);
       setHasLoadedSpecialties(true);
     } catch (error) {
@@ -468,8 +471,8 @@ export function AdminSettings({ onLogout }: AdminSettingsProps) {
   }
 
   function startEditSpecialty(specialty: Specialty) {
-    setEditingSpecialtyId(specialty.id);
-    setEditingSpecialtyName(specialty.name);
+    setEditingSpecialtyId(specialty.Id);
+    setEditingSpecialtyName(specialty.Name);
   }
 
   function cancelEditSpecialty() {
@@ -1212,11 +1215,11 @@ export function AdminSettings({ onLogout }: AdminSettingsProps) {
                               </thead>
                               <tbody className="divide-y">
                                 {specialties.map((specialty) => (
-                                  <tr key={specialty.id} className="hover:bg-muted/30">
-                                    {editingSpecialtyId === specialty.id ? (
+                                  <tr key={specialty.Id} className="hover:bg-muted/30">
+                                    {editingSpecialtyId === specialty.Id ? (
                                       <>
                                         <td className="px-4 py-3 text-sm text-muted-foreground">
-                                          {specialty.id}
+                                          {specialty.Id}
                                         </td>
                                         <td className="px-4 py-3">
                                           <Input
@@ -1224,7 +1227,7 @@ export function AdminSettings({ onLogout }: AdminSettingsProps) {
                                             onChange={(e) => setEditingSpecialtyName(e.target.value)}
                                             onKeyDown={(e) => {
                                               if (e.key === "Enter") {
-                                                handleUpdateSpecialty(specialty.id);
+                                                handleUpdateSpecialty(specialty.Id);
                                               } else if (e.key === "Escape") {
                                                 cancelEditSpecialty();
                                               }
@@ -1238,7 +1241,7 @@ export function AdminSettings({ onLogout }: AdminSettingsProps) {
                                           <div className="flex items-center justify-end gap-2">
                                             <Button
                                               size="sm"
-                                              onClick={() => handleUpdateSpecialty(specialty.id)}
+                                              onClick={() => handleUpdateSpecialty(specialty.Id)}
                                               disabled={loadingSpecialties || !editingSpecialtyName.trim()}
                                               className="h-8"
                                             >
@@ -1259,10 +1262,10 @@ export function AdminSettings({ onLogout }: AdminSettingsProps) {
                                     ) : (
                                       <>
                                         <td className="px-4 py-3 text-sm text-muted-foreground">
-                                          {specialty.id}
+                                          {specialty.Id}
                                         </td>
                                         <td className="px-4 py-3 text-sm font-medium">
-                                          {specialty.name}
+                                          {specialty.Name}
                                         </td>
                                         <td className="px-4 py-3">
                                           <div className="flex items-center justify-end gap-2">
@@ -1277,7 +1280,7 @@ export function AdminSettings({ onLogout }: AdminSettingsProps) {
                                             <Button
                                               size="sm"
                                               variant="outline"
-                                              onClick={() => handleDeleteSpecialty(specialty.id, specialty.name)}
+                                              onClick={() => handleDeleteSpecialty(specialty.Id, specialty.Name)}
                                               disabled={loadingSpecialties}
                                               className="text-red-600 hover:bg-red-50"
                                             >
