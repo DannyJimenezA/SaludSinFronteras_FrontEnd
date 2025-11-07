@@ -193,8 +193,8 @@ export async function seedSubscriptionPlans(): Promise<{ message: string }> {
 
 // ---- Especialidades ----
 export type Specialty = {
-  id: string;
-  name: string;
+  Id: string;
+  Name: string;
 };
 
 // Listar todas las especialidades
