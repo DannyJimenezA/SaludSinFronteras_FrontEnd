@@ -33,7 +33,7 @@ export function LandingPageNew() {
     {
       id: 'basic',
       name: 'Profesional',
-      price: '$29.99',
+      price: '$4.99',
       period: '/mes',
       description: 'Ideal para cuidado regular',
       features: [
@@ -51,7 +51,7 @@ export function LandingPageNew() {
     {
       id: 'premium',
       name: 'Premium',
-      price: '$99.99',
+      price: '$14.99',
       period: '/mes',
       description: 'Acceso completo',
       features: [
